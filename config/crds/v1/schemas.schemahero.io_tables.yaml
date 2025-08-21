@@ -58,6 +58,11 @@ spec:
                   description: DataMigration defines a data transformation to be applied
                     to a table
                   properties:
+                    batchDelayMs:
+                      description: BatchDelayMs is the delay in milliseconds between
+                        batches
+                      format: int32
+                      type: integer
                     batchSize:
                       description: |-
                         BatchSize for operations that should be processed in chunks
@@ -73,6 +78,17 @@ spec:
                           executing a data migration
                         properties:
                           operator:
+                            description: 'Operator for comparison: >, <, >=, <=, =,
+                              !=, EXISTS, NOT EXISTS'
+                            enum:
+                            - '>'
+                            - <
+                            - '>='
+                            - <=
+                            - =
+                            - '!='
+                            - EXISTS
+                            - NOT EXISTS
                             type: string
                           query:
                             description: |-
@@ -80,12 +96,13 @@ spec:
                               The migration will execute if the result matches the operator and value
                             type: string
                           value:
+                            description: Value to compare against (ignored for EXISTS/NOT
+                              EXISTS)
                             format: int64
                             type: integer
                         required:
                         - operator
                         - query
-                        - value
                         type: object
                       type: array
                     dependsOn:
@@ -102,17 +119,74 @@ spec:
                       description: Name is a unique identifier for this migration
                         step
                       type: string
+                    priority:
+                      description: |-
+                        Priority for execution ordering (higher executes first)
+                        Migrations with same priority are ordered by dependency
+                      format: int32
+                      type: integer
+                    reverseSQL:
+                      description: ReverseSQL contains the SQL to reverse this migration
+                      type: string
+                    reversible:
+                      description: Reversible indicates if this migration can be rolled
+                        back
+                      type: boolean
                     sql:
                       description: SQL contains the DML statements to execute
                       type: string
+                    tags:
+                      description: Tags for categorizing migrations
+                      items:
+                        type: string
+                      type: array
+                    template:
+                      description: Template defines a parameterized SQL template
+                      properties:
+                        parameters:
+                          description: Parameters define available template parameters
+                          items:
+                            description: TemplateParameter defines a parameter that
+                              can be used in templates
+                            properties:
+                              default:
+                                description: Default value if not provided
+                                type: string
+                              description:
+                                description: Description for documentation
+                                type: string
+                              name:
+                                description: Name of the parameter (used in templates
+                                  as {{.ParamName}})
+                                type: string
+                              required:
+                                description: Required indicates if this parameter
+                                  must be provided
+                                type: boolean
+                              type:
+                                description: Type of the parameter for validation
+                                type: string
+                            required:
+                            - name
+                            - type
+                            type: object
+                          type: array
+                        template:
+                          description: Template is the SQL template with placeholders
+                          type: string
+                      required:
+                      - template
+                      type: object
                     timeout:
                       description: |-
                         Timeout duration for this migration (e.g., "30m", "1h")
                         Uses Kubernetes duration format
                       type: string
+                    type:
+                      description: Type indicates the type of data migration
+                      type: string
                   required:
                   - name
-                  - sql
                   type: object
                 type: array
               database:

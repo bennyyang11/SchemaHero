@@ -119,6 +119,26 @@ func BuildINClause(values ...interface{}) string {
 		return "(NULL)"
 	}
 	
+	// Handle case where first argument is a slice
+	if len(values) == 1 {
+		switch v := values[0].(type) {
+		case []interface{}:
+			values = v
+		case []int:
+			newValues := make([]interface{}, len(v))
+			for i, val := range v {
+				newValues[i] = val
+			}
+			values = newValues
+		case []string:
+			newValues := make([]interface{}, len(v))
+			for i, val := range v {
+				newValues[i] = val
+			}
+			values = newValues
+		}
+	}
+	
 	parts := make([]string, len(values))
 	for i, v := range values {
 		switch val := v.(type) {
@@ -127,7 +147,7 @@ func BuildINClause(values ...interface{}) string {
 		case int, int32, int64:
 			parts[i] = fmt.Sprintf("%d", val)
 		default:
-			parts[i] = fmt.Sprintf("%v", val)
+			parts[i] = fmt.Sprintf("%d", val)
 		}
 	}
 	

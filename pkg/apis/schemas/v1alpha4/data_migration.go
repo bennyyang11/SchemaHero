@@ -27,7 +27,7 @@ type DataMigrationCondition struct {
 	Query    string `json:"query" yaml:"query"`
 	
 	// Operator for comparison: >, <, >=, <=, =, !=, EXISTS, NOT EXISTS
-	// +kubebuilder:validation:Enum=">","<",">=","<=","=","!=","EXISTS","NOT EXISTS"
+	// +kubebuilder:validation:Enum={">","<",">=","<=","=","!=","EXISTS","NOT EXISTS"}
 	Operator string `json:"operator" yaml:"operator"`
 	
 	// Value to compare against (ignored for EXISTS/NOT EXISTS)

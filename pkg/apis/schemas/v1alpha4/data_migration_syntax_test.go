@@ -19,6 +19,7 @@ package v1alpha4
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -381,24 +382,41 @@ func TestDataMigrationValidation(t *testing.T) {
 	
 	t.Run("invalid migration name", func(t *testing.T) {
 		invalidNames := []string{
-			"",
-			"UPPERCASE",
-			"has spaces",
-			"has_underscores",
-			"123startswithnumber",
-			"ends-with-dash-",
-			"-starts-with-dash",
-			"way-too-long-name-that-exceeds-the-sixty-three-character-limit-for-kubernetes",
+			"",                    // empty
+			"UPPERCASE",          // uppercase not allowed
+			"has spaces",         // spaces not allowed
+			"has_underscores",    // underscores not allowed
+			"ends-with-dash-",    // can't end with dash
+			"-starts-with-dash",  // can't start with dash
+			"way-too-long-name-that-exceeds-the-sixty-three-character-limit-for-kubernetes", // too long
+		}
+		
+		validNames := []string{
+			"valid-name",
+			"123startswithnumber",  // numbers at start are valid in k8s
+			"name123",
+			"a",
+			"x" + strings.Repeat("-a", 30), // exactly 62 chars
 		}
 		
 		nameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 		
+		// Test invalid names
 		for _, name := range invalidNames {
 			if name == "" || !nameRegex.MatchString(name) || len(name) > 63 {
-				// Name is invalid
+				// Name is correctly invalid, test passes
 				continue
 			}
 			t.Errorf("name %q should be invalid but passed validation", name)
+		}
+		
+		// Test valid names
+		for _, name := range validNames {
+			if name != "" && nameRegex.MatchString(name) && len(name) <= 63 {
+				// Name is correctly valid, test passes
+				continue
+			}
+			t.Errorf("name %q should be valid but failed validation", name)
 		}
 	})
 	
