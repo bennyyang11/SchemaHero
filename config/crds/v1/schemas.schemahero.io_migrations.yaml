@@ -60,7 +60,11 @@ spec:
                 type: string
               editedDDL:
                 type: string
+              editedDML:
+                type: string
               generatedDDL:
+                type: string
+              generatedDML:
                 type: string
               tableName:
                 type: string
@@ -76,6 +80,15 @@ spec:
               approvedAt:
                 format: int64
                 type: integer
+              dataMigrationStatus:
+                description: DataMigrationStatus tracks the execution state of a data
+                  migration
+                type: string
+              estimatedDataRows:
+                format: int64
+                type: integer
+              estimatedDuration:
+                type: string
               executedAt:
                 format: int64
                 type: integer
@@ -100,6 +113,9 @@ spec:
               rejectedAt:
                 format: int64
                 type: integer
+              schemaMigrationStatus:
+                description: Data migration specific status fields
+                type: string
             type: object
         type: object
     served: true

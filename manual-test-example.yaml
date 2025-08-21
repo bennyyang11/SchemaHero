@@ -1,0 +1,48 @@
+database: schemahero
+name: test_users
+schema:
+  postgres:
+    primaryKey: [id]
+    columns:
+      - name: id
+        type: serial
+      - name: email
+        type: varchar(255)
+        constraints:
+          notNull: true
+      - name: first_name
+        type: varchar(100)
+      - name: last_name
+        type: varchar(100)
+      - name: created_at
+        type: timestamp
+        attributes:
+          default: now()
+seedData:
+  rows:
+    - columns:
+      - column: id
+        value:
+          int: 1
+      - column: email
+        value:
+          str: "john@example.com"
+      - column: first_name
+        value:
+          str: "John"
+      - column: last_name
+        value:
+          str: "Doe"
+    - columns:
+      - column: id
+        value:
+          int: 2
+      - column: email
+        value:
+          str: "jane@example.com"
+      - column: first_name
+        value:
+          str: "Jane"
+      - column: last_name
+        value:
+          str: "Smith" 

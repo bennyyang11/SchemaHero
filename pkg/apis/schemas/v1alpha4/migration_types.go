@@ -38,6 +38,8 @@ type MigrationSpec struct {
 	TableNamespace string `json:"tableNamespace"`
 	GeneratedDDL   string `json:"generatedDDL,omitempty"`
 	EditedDDL      string `json:"editedDDL,omitempty"`
+	GeneratedDML   string `json:"generatedDML,omitempty"`
+	EditedDML      string `json:"editedDML,omitempty"`
 }
 
 // MigrationStatus defines the observed state of Migration
@@ -53,6 +55,12 @@ type MigrationStatus struct {
 	ApprovedAt int64 `json:"approvedAt,omitempty"`
 	RejectedAt int64 `json:"rejectedAt,omitempty"`
 	ExecutedAt int64 `json:"executedAt,omitempty"`
+
+	// Data migration specific status fields
+	SchemaMigrationStatus DataMigrationStatus `json:"schemaMigrationStatus,omitempty"`
+	DataMigrationStatus   DataMigrationStatus `json:"dataMigrationStatus,omitempty"`
+	EstimatedDataRows     int64               `json:"estimatedDataRows,omitempty"`
+	EstimatedDuration     string              `json:"estimatedDuration,omitempty"`
 }
 
 // +genclient

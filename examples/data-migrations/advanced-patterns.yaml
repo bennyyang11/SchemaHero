@@ -1,0 +1,361 @@
+# Advanced Data Migration Patterns for SchemaHero
+# This file demonstrates various data migration patterns and features
+
+---
+# Example 1: Template-based migration with parameters
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: products-normalization
+  namespace: default
+spec:
+  database: ecommerce
+  name: products
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+        - name: name
+          type: varchar(255)
+        - name: description
+          type: text
+        - name: price
+          type: decimal(10,2)
+        - name: normalized_name
+          type: varchar(255)
+        - name: search_vector
+          type: tsvector
+  
+  dataMigrations:
+    # Template-based migration for flexible column updates
+    - name: "normalize-product-names"
+      description: "Normalize product names for better search"
+      type: TRANSFORM
+      template:
+        template: |
+          UPDATE {{identifier .tableName}} 
+          SET {{identifier .targetColumn}} = {{.normalizeFunc}}({{identifier .sourceColumn}})
+          WHERE {{identifier .targetColumn}} IS NULL
+            OR {{identifier .targetColumn}} != {{.normalizeFunc}}({{identifier .sourceColumn}})
+        parameters:
+          - name: tableName
+            type: table
+            default: "products"
+          - name: sourceColumn
+            type: column
+            default: "name"
+          - name: targetColumn
+            type: column
+            default: "normalized_name"
+          - name: normalizeFunc
+            type: string
+            default: "LOWER"
+      batchSize: 5000
+      batchDelayMs: 100
+
+---
+# Example 2: Complex migration with dependencies and conditions
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: user-activity-archive
+  namespace: default
+spec:
+  database: analytics
+  name: user_activity
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+        - name: user_id
+          type: integer
+        - name: action
+          type: varchar(100)
+        - name: created_at
+          type: timestamp
+        - name: archived
+          type: boolean
+          default: "false"
+  
+  dataMigrations:
+    # First, mark old records for archival
+    - name: "mark-old-activities"
+      description: "Mark activities older than 1 year for archival"
+      type: TRANSFORM
+      priority: 10
+      sql: |
+        UPDATE user_activity 
+        SET archived = true 
+        WHERE created_at < CURRENT_DATE - INTERVAL '1 year'
+          AND archived = false
+      conditions:
+        - query: "SELECT COUNT(*) FROM user_activity WHERE created_at < CURRENT_DATE - INTERVAL '1 year' AND archived = false"
+          operator: ">"
+          value: 0
+      batchSize: 10000
+      timeout: "30m"
+    
+    # Then copy to archive table (depends on marking)
+    - name: "copy-to-archive"
+      description: "Copy archived activities to archive table"
+      type: COPY
+      priority: 5
+      dependsOn: ["mark-old-activities"]
+      sql: |
+        INSERT INTO user_activity_archive (user_id, action, created_at, original_id)
+        SELECT user_id, action, created_at, id 
+        FROM user_activity 
+        WHERE archived = true
+          AND id NOT IN (SELECT original_id FROM user_activity_archive)
+      conditions:
+        - query: "SELECT 1 FROM information_schema.tables WHERE table_name = 'user_activity_archive'"
+          operator: "EXISTS"
+      batchSize: 5000
+      batchDelayMs: 500
+      timeout: "45m"
+    
+    # Finally, clean up archived records (depends on copying)
+    - name: "cleanup-archived"
+      description: "Remove successfully archived activities"
+      type: CLEANUP
+      priority: 1
+      dependsOn: ["copy-to-archive"]
+      sql: |
+        DELETE FROM user_activity 
+        WHERE archived = true 
+          AND id IN (SELECT original_id FROM user_activity_archive)
+      reversible: true
+      reverseSQL: |
+        INSERT INTO user_activity (id, user_id, action, created_at, archived)
+        SELECT original_id, user_id, action, created_at, true
+        FROM user_activity_archive
+        WHERE original_id NOT IN (SELECT id FROM user_activity)
+      batchSize: 2000
+      batchDelayMs: 1000
+      timeout: "60m"
+
+---
+# Example 3: Conditional migration based on environment
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: feature-flags-migration
+  namespace: default
+spec:
+  database: config
+  name: feature_flags
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+        - name: name
+          type: varchar(100)
+        - name: enabled
+          type: boolean
+        - name: environment
+          type: varchar(50)
+        - name: percentage
+          type: integer
+  
+  dataMigrations:
+    # Enable feature gradually based on environment
+    - name: "gradual-feature-rollout"
+      description: "Gradually enable new feature based on percentage"
+      type: TRANSFORM
+      template:
+        template: |
+          UPDATE feature_flags 
+          SET enabled = true,
+              percentage = {{.percentage}}
+          WHERE name = {{quote .featureName}}
+            AND environment = {{quote .environment}}
+            AND (percentage < {{.percentage}} OR percentage IS NULL)
+        parameters:
+          - name: featureName
+            type: string
+            required: true
+            description: "Name of the feature to roll out"
+          - name: environment
+            type: enum
+            required: true
+            description: "Target environment (dev, staging, prod)"
+          - name: percentage
+            type: integer
+            default: "10"
+            description: "Percentage of users to enable"
+      conditions:
+        - query: "SELECT COUNT(*) FROM feature_flags WHERE name = 'new-checkout-flow'"
+          operator: ">"
+          value: 0
+      tags: ["feature-rollout", "gradual"]
+
+---
+# Example 4: Data quality improvement migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: customer-data-quality
+  namespace: default
+spec:
+  database: crm
+  name: customers
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+        - name: email
+          type: varchar(255)
+        - name: phone
+          type: varchar(50)
+        - name: country_code
+          type: varchar(2)
+        - name: data_quality_score
+          type: integer
+  
+  dataMigrations:
+    # Validate and clean email addresses
+    - name: "validate-emails"
+      description: "Validate and clean customer email addresses"
+      type: TRANSFORM
+      priority: 20
+      sql: |
+        UPDATE customers 
+        SET email = LOWER(TRIM(email)),
+            data_quality_score = COALESCE(data_quality_score, 0) + 10
+        WHERE email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+          AND (email != LOWER(TRIM(email)) OR data_quality_score IS NULL)
+      batchSize: 1000
+      tags: ["data-quality", "email"]
+    
+    # Standardize phone numbers
+    - name: "standardize-phones"
+      description: "Standardize phone number format"
+      type: TRANSFORM
+      priority: 15
+      sql: |
+        UPDATE customers 
+        SET phone = REGEXP_REPLACE(phone, '[^0-9+]', '', 'g'),
+            data_quality_score = COALESCE(data_quality_score, 0) + 10
+        WHERE phone IS NOT NULL
+          AND phone != REGEXP_REPLACE(phone, '[^0-9+]', '', 'g')
+      conditions:
+        - query: "SELECT COUNT(*) FROM customers WHERE phone ~ '[^0-9+]'"
+          operator: ">"
+          value: 0
+      batchSize: 2000
+      tags: ["data-quality", "phone"]
+    
+    # Update country codes based on phone patterns
+    - name: "infer-country-codes"
+      description: "Infer country codes from phone number patterns"
+      type: BACKFILL
+      priority: 10
+      dependsOn: ["standardize-phones"]
+      sql: |
+        UPDATE customers 
+        SET country_code = CASE
+          WHEN phone LIKE '+1%' AND LENGTH(phone) = 12 THEN 'US'
+          WHEN phone LIKE '+44%' AND LENGTH(phone) = 13 THEN 'GB'
+          WHEN phone LIKE '+49%' AND LENGTH(phone) = 14 THEN 'DE'
+          WHEN phone LIKE '+33%' AND LENGTH(phone) = 13 THEN 'FR'
+          ELSE country_code
+        END,
+        data_quality_score = COALESCE(data_quality_score, 0) + 5
+        WHERE country_code IS NULL
+          AND phone IS NOT NULL
+          AND phone LIKE '+%'
+      tags: ["data-quality", "country"]
+
+---
+# Example 5: Performance optimization migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: search-optimization
+  namespace: default
+spec:
+  database: catalog
+  name: products
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+        - name: name
+          type: varchar(255)
+        - name: description
+          type: text
+        - name: tags
+          type: "text[]"
+        - name: search_tokens
+          type: tsvector
+        - name: popularity_score
+          type: integer
+  
+  dataMigrations:
+    # Build search tokens for full-text search
+    - name: "build-search-tokens"
+      description: "Build search tokens from name, description and tags"
+      type: TRANSFORM
+      sql: |
+        UPDATE products 
+        SET search_tokens = 
+          setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
+          setweight(to_tsvector('english', COALESCE(description, '')), 'B') ||
+          setweight(to_tsvector('english', COALESCE(array_to_string(tags, ' '), '')), 'C')
+        WHERE search_tokens IS NULL
+          OR search_tokens = ''::tsvector
+      conditions:
+        - query: "SELECT COUNT(*) FROM products WHERE search_tokens IS NULL OR search_tokens = ''::tsvector"
+          operator: ">"
+          value: 0
+      batchSize: 500
+      batchDelayMs: 50
+      timeout: "2h"
+      tags: ["performance", "search"]
+    
+    # Calculate initial popularity scores
+    - name: "calculate-popularity"
+      description: "Calculate product popularity based on various metrics"
+      type: BACKFILL
+      dependsOn: ["build-search-tokens"]
+      template:
+        template: |
+          WITH product_metrics AS (
+            SELECT 
+              p.id,
+              COUNT(DISTINCT o.id) as order_count,
+              COUNT(DISTINCT r.id) as review_count,
+              AVG(r.rating) as avg_rating
+            FROM products p
+            LEFT JOIN order_items oi ON p.id = oi.product_id
+            LEFT JOIN orders o ON oi.order_id = o.id 
+              AND o.created_at > CURRENT_DATE - INTERVAL {{quote .lookbackDays}}
+            LEFT JOIN reviews r ON p.id = r.product_id
+            WHERE p.id > {{.lastProcessedId}}
+            GROUP BY p.id
+            ORDER BY p.id
+            LIMIT {{.batchSize}}
+          )
+          UPDATE products p
+          SET popularity_score = 
+            COALESCE(pm.order_count * 10, 0) +
+            COALESCE(pm.review_count * 5, 0) +
+            COALESCE(ROUND(pm.avg_rating * 20), 0)
+          FROM product_metrics pm
+          WHERE p.id = pm.id
+        parameters:
+          - name: lookbackDays
+            type: string
+            default: "90 days"
+          - name: lastProcessedId
+            type: integer
+            default: "0"
+          - name: batchSize
+            type: integer
+            default: "1000"
+      tags: ["performance", "analytics"] 

@@ -1,0 +1,137 @@
+# Example: Table with Data Migrations
+# This example demonstrates how to use SchemaHero's new data migration capabilities
+# to perform both schema and data transformations in a single workflow
+
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: users-table-v2
+  namespace: default
+spec:
+  database: myapp
+  name: users
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: serial
+          constraints:
+            notNull: true
+        - name: email
+          type: varchar(255)
+          constraints:
+            notNull: true
+        - name: username
+          type: varchar(100)
+        - name: status
+          type: varchar(20)
+          # New column being added
+        - name: created_at_tz
+          type: "timestamp with time zone"
+          # Converting existing created_at to timezone-aware
+        - name: last_login
+          type: "timestamp with time zone"
+  
+  # Data migrations to run after schema changes
+  dataMigrations:
+    # First migration: Set default status for existing users
+    - name: "set-default-status"
+      description: "Set default status to 'active' for all existing users without a status"
+      sql: "UPDATE users SET status = 'active' WHERE status IS NULL"
+      # Only run if there are users without status
+      conditions:
+        - query: "SELECT COUNT(*) FROM users WHERE status IS NULL"
+          operator: ">"
+          value: 0
+      # Process in batches of 1000 rows for large tables
+      batchSize: 1000
+      timeout: "10m"
+    
+    # Second migration: Convert timestamps to timezone-aware
+    - name: "convert-created-at-timezone"
+      description: "Convert created_at timestamps to UTC timezone-aware timestamps"
+      sql: "UPDATE users SET created_at_tz = created_at AT TIME ZONE 'UTC' WHERE created_at_tz IS NULL"
+      # This migration depends on the status migration completing first
+      dependsOn: ["set-default-status"]
+      batchSize: 500
+      timeout: "30m"
+    
+    # Third migration: Populate username from email if missing
+    - name: "generate-usernames"
+      description: "Generate usernames from email addresses for users without usernames"
+      sql: |
+        UPDATE users 
+        SET username = SPLIT_PART(email, '@', 1) 
+        WHERE username IS NULL OR username = ''
+      conditions:
+        - query: "SELECT COUNT(*) FROM users WHERE username IS NULL OR username = ''"
+          operator: ">"
+          value: 0
+      dependsOn: ["convert-created-at-timezone"]
+      timeout: "15m"
+    
+    # Fourth migration: Clean up old data
+    - name: "archive-inactive-users"
+      description: "Move inactive users to archive table"
+      sql: |
+        INSERT INTO users_archive 
+        SELECT * FROM users 
+        WHERE last_login < NOW() - INTERVAL '2 years'
+        AND status = 'inactive'
+      conditions:
+        # Only run if archive table exists
+        - query: "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'users_archive'"
+          operator: "="
+          value: 1
+      dependsOn: ["set-default-status", "generate-usernames"]
+      timeout: "1h"
+
+---
+# Example of the Migration resource that would be generated
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Migration
+metadata:
+  name: users-table-v2-20240115-abc123
+  namespace: default
+spec:
+  databaseName: myapp
+  tableName: users
+  tableNamespace: default
+  
+  # Schema changes (DDL)
+  generatedDDL: |
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS status varchar(20);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at_tz timestamp with time zone;
+  
+  # Data migrations (DML)
+  generatedDML: |
+    -- Migration: set-default-status
+    UPDATE users SET status = 'active' WHERE status IS NULL;
+    
+    -- Migration: convert-created-at-timezone
+    UPDATE users SET created_at_tz = created_at AT TIME ZONE 'UTC' WHERE created_at_tz IS NULL;
+    
+    -- Migration: generate-usernames
+    UPDATE users 
+    SET username = SPLIT_PART(email, '@', 1) 
+    WHERE username IS NULL OR username = '';
+    
+    -- Migration: archive-inactive-users
+    INSERT INTO users_archive 
+    SELECT * FROM users 
+    WHERE last_login < NOW() - INTERVAL '2 years'
+    AND status = 'inactive';
+  
+  # These fields can be edited before approval
+  editedDDL: ""
+  editedDML: ""
+
+status:
+  phase: PLANNED
+  plannedAt: 1705344000000000000
+  
+  # New status fields for data migrations
+  schemaMigrationStatus: PENDING
+  dataMigrationStatus: PENDING
+  estimatedDataRows: 125000
+  estimatedDuration: "45m30s" 
