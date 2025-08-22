@@ -394,17 +394,14 @@ func (d *Database) PlanDataMigrations(spec *schemasv1alpha4.TableSpec) ([]string
 		// CockroachDB uses PostgreSQL syntax
 		return postgres.PlanPostgresDataMigrations(d.URI, spec.Name, spec.DataMigrations)
 	} else if d.Driver == "sqlite" {
-		// TODO: Implement SQLite data migrations
-		return []string{}, errors.New("SQLite data migrations not yet implemented")
+		return sqlite.PlanSqliteDataMigrations(d.URI, spec.Name, spec.DataMigrations)
 	} else if d.Driver == "rqlite" {
-		// TODO: Implement RQLite data migrations  
-		return []string{}, errors.New("RQLite data migrations not yet implemented")
+		return rqlite.PlanRqliteDataMigrations(d.URI, spec.Name, spec.DataMigrations)
 	} else if d.Driver == "timescaledb" {
 		// TimescaleDB uses PostgreSQL syntax
 		return postgres.PlanPostgresDataMigrations(d.URI, spec.Name, spec.DataMigrations)
 	} else if d.Driver == "cassandra" {
-		// TODO: Implement Cassandra data migrations (limited support)
-		return []string{}, errors.New("Cassandra data migrations not yet implemented")
+		return cassandra.PlanCassandraDataMigrations(d.Hosts, d.Username, d.Password, d.Keyspace, spec.Name, spec.DataMigrations)
 	}
 
 	return nil, errors.Errorf("unknown database driver: %q", d.Driver)

@@ -1,0 +1,13 @@
+alter table "users" alter column "id" drop default;
+alter table "users" alter column "created_at" type timestamp, alter column "created_at" drop default;
+alter table "users" add column "status" character varying (20);
+alter table "users" add column "full_name" character varying (255);
+alter table "users" drop constraint "users_email_key";
+-- Migration: add-status;
+-- Description: Set active status;
+UPDATE users SET status = 'active' WHERE status IS NULL;
+;
+-- Migration: create-full-names;
+-- Description: Combine names;
+UPDATE users SET full_name = first_name || ' ' || last_name WHERE full_name IS NULL;
+;

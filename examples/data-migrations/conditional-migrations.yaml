@@ -1,0 +1,667 @@
+# Conditional Migrations Examples
+#
+# This file demonstrates how to use conditional data migrations that execute
+# only when specific conditions are met in your database.
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: user-cleanup-conditional
+  annotations:
+    description: "Clean up user data only when certain conditions are met"
+spec:
+  database: myapp
+  name: users
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: email
+          type: varchar(255)
+        - name: status
+          type: varchar(20)
+        - name: last_login_at
+          type: timestamp
+        - name: inactive_notified
+          type: boolean
+        - name: cleanup_eligible
+          type: boolean
+  dataMigrations:
+    - name: mark-inactive-users
+      description: "Mark users as inactive only if they haven't logged in for 6 months"
+      sql: |
+        UPDATE users 
+        SET status = 'inactive',
+            inactive_notified = false
+        WHERE last_login_at < NOW() - INTERVAL '6 months'
+          AND status = 'active'
+      conditions:
+        - query: "SELECT COUNT(*) FROM users WHERE last_login_at < NOW() - INTERVAL '6 months' AND status = 'active'"
+          operator: ">"
+          value: 0
+      type: CLEANUP
+      batchSize: 5000
+
+    - name: notify-inactive-users
+      description: "Mark inactive users as notified only if there are inactive users to notify"
+      sql: |
+        UPDATE users 
+        SET inactive_notified = true
+        WHERE status = 'inactive' 
+          AND inactive_notified = false
+      conditions:
+        - query: "SELECT COUNT(*) FROM users WHERE status = 'inactive' AND inactive_notified = false"
+          operator: ">"
+          value: 10  # Only run if there are more than 10 users to notify
+      dependsOn: ["mark-inactive-users"]
+      type: TRANSFORM
+      batchSize: 2000
+
+    - name: mark-cleanup-eligible
+      description: "Mark users eligible for cleanup only if inactive for 1 year"
+      sql: |
+        UPDATE users 
+        SET cleanup_eligible = true
+        WHERE status = 'inactive'
+          AND last_login_at < NOW() - INTERVAL '1 year'
+          AND cleanup_eligible IS NOT TRUE
+      conditions:
+        - query: "SELECT COUNT(*) FROM users WHERE status = 'inactive' AND last_login_at < NOW() - INTERVAL '1 year'"
+          operator: ">"
+          value: 100  # Only run if there are significant cleanup candidates
+        - query: "SELECT COUNT(*) FROM users WHERE cleanup_eligible = true"
+          operator: "<"
+          value: 10000  # Don't run if already too many marked for cleanup
+      dependsOn: ["notify-inactive-users"]
+      type: CLEANUP
+      batchSize: 1000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: inventory-rebalancing
+  annotations:
+    description: "Rebalance inventory only when stock levels require it"
+spec:
+  database: warehouse
+  name: inventory
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: product_id
+          type: int
+        - name: warehouse_id
+          type: int
+        - name: current_stock
+          type: int
+        - name: reserved_stock
+          type: int
+        - name: available_stock
+          type: int
+        - name: reorder_point
+          type: int
+        - name: needs_reorder
+          type: boolean
+  dataMigrations:
+    - name: calculate-available-stock
+      description: "Calculate available stock only when reservations have changed"
+      sql: |
+        UPDATE inventory 
+        SET available_stock = current_stock - COALESCE(reserved_stock, 0)
+        WHERE available_stock IS NULL 
+          OR available_stock != (current_stock - COALESCE(reserved_stock, 0))
+      conditions:
+        - query: |
+            SELECT COUNT(*) FROM inventory 
+            WHERE available_stock IS NULL 
+              OR available_stock != (current_stock - COALESCE(reserved_stock, 0))
+          operator: ">"
+          value: 50  # Only run if there are discrepancies
+      type: TRANSFORM
+      batchSize: 10000
+
+    - name: identify-reorder-needed
+      description: "Mark items needing reorder only when stock is low"
+      sql: |
+        UPDATE inventory 
+        SET needs_reorder = CASE
+          WHEN available_stock <= reorder_point THEN true
+          ELSE false
+        END
+        WHERE needs_reorder IS NULL
+          OR (available_stock <= reorder_point AND needs_reorder = false)
+          OR (available_stock > reorder_point AND needs_reorder = true)
+      conditions:
+        - query: "SELECT COUNT(*) FROM inventory WHERE available_stock <= reorder_point"
+          operator: ">"
+          value: 0  # Only run if there are items below reorder point
+        - query: "SELECT COUNT(*) FROM inventory WHERE available_stock IS NOT NULL AND reorder_point IS NOT NULL"
+          operator: ">"
+          value: 100  # Only run if we have enough data to work with
+      dependsOn: ["calculate-available-stock"]
+      type: TRANSFORM
+      batchSize: 15000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: financial-data-validation
+  annotations:
+    description: "Validate and correct financial data only when discrepancies exist"
+spec:
+  database: financial
+  name: transactions
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: account_id
+          type: integer
+        - name: amount
+          type: decimal(15,2)
+        - name: tax_amount
+          type: decimal(15,2)
+        - name: total_amount
+          type: decimal(15,2)
+        - name: calculated_total
+          type: decimal(15,2)
+        - name: discrepancy_found
+          type: boolean
+        - name: corrected_at
+          type: timestamp
+  dataMigrations:
+    - name: calculate-expected-totals
+      description: "Calculate expected totals to identify discrepancies"
+      sql: |
+        UPDATE transactions 
+        SET calculated_total = amount + COALESCE(tax_amount, 0)
+        WHERE calculated_total IS NULL
+      type: TRANSFORM
+      batchSize: 50000
+
+    - name: identify-discrepancies
+      description: "Mark transactions with discrepancies only if discrepancies exist"
+      sql: |
+        UPDATE transactions 
+        SET discrepancy_found = true
+        WHERE ABS(total_amount - calculated_total) > 0.01
+          AND discrepancy_found IS NOT TRUE
+      conditions:
+        - query: "SELECT COUNT(*) FROM transactions WHERE ABS(total_amount - calculated_total) > 0.01"
+          operator: ">"
+          value: 0  # Only run if discrepancies are found
+        - query: "SELECT COUNT(*) FROM transactions WHERE calculated_total IS NOT NULL"
+          operator: ">"
+          value: 1000  # Only run if we have enough calculated data
+      dependsOn: ["calculate-expected-totals"]
+      type: TRANSFORM
+      batchSize: 25000
+
+    - name: correct-discrepancies
+      description: "Correct discrepancies only if correction is safe"
+      sql: |
+        UPDATE transactions 
+        SET total_amount = calculated_total,
+            corrected_at = NOW()
+        WHERE discrepancy_found = true
+          AND ABS(total_amount - calculated_total) <= 100.00  -- Only small discrepancies
+          AND corrected_at IS NULL
+      conditions:
+        - query: "SELECT COUNT(*) FROM transactions WHERE discrepancy_found = true"
+          operator: ">"
+          value: 0
+        - query: "SELECT COUNT(*) FROM transactions WHERE discrepancy_found = true AND ABS(total_amount - calculated_total) > 100.00"
+          operator: "="
+          value: 0  # Don't run if there are large discrepancies (needs manual review)
+      dependsOn: ["identify-discrepancies"]
+      type: TRANSFORM
+      batchSize: 5000
+      reversible: true
+      reverseSQL: |
+        UPDATE transactions 
+        SET total_amount = amount + COALESCE(tax_amount, 0),
+            corrected_at = NULL
+        WHERE corrected_at > NOW() - INTERVAL '1 hour'
+
+---
+# Seasonal data migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: seasonal-pricing-update
+spec:
+  database: ecommerce
+  name: products
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: name
+          type: varchar(255)
+        - name: category
+          type: varchar(100)
+        - name: base_price
+          type: decimal(10,2)
+        - name: seasonal_price
+          type: decimal(10,2)
+        - name: seasonal_discount
+          type: decimal(5,2)
+        - name: season_updated_at
+          type: timestamp
+  dataMigrations:
+    - name: apply-winter-pricing
+      description: "Apply winter seasonal pricing only during winter months"
+      sql: |
+        UPDATE products 
+        SET seasonal_price = CASE
+          WHEN category = 'outerwear' THEN base_price * 1.20
+          WHEN category = 'electronics' THEN base_price * 0.90
+          ELSE base_price
+        END,
+        seasonal_discount = CASE
+          WHEN category = 'outerwear' THEN 0
+          WHEN category = 'electronics' THEN 10.00
+          ELSE 5.00
+        END,
+        season_updated_at = NOW()
+        WHERE seasonal_price IS NULL
+      conditions:
+        - query: "SELECT MONTH(NOW())"
+          operator: ">="
+          value: 11  # November or later
+        - query: "SELECT MONTH(NOW())"
+          operator: "<="
+          value: 2   # February or earlier
+        - query: "SELECT COUNT(*) FROM products WHERE seasonal_price IS NULL"
+          operator: ">"
+          value: 100  # Only if enough products need updating
+      type: TRANSFORM
+      batchSize: 5000
+
+---
+# Data quality conditional migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: data-quality-validation
+spec:
+  database: quality_db
+  name: customer_data
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: email
+          type: varchar(255)
+        - name: phone
+          type: varchar(20)
+        - name: email_valid
+          type: boolean
+        - name: phone_valid
+          type: boolean
+        - name: data_quality_score
+          type: decimal(5,2)
+        - name: validated_at
+          type: timestamp
+  dataMigrations:
+    - name: validate-email-addresses
+      description: "Validate email addresses only if validation is needed"
+      sql: |
+        UPDATE customer_data 
+        SET email_valid = CASE
+          WHEN email ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN true
+          ELSE false
+        END
+        WHERE email_valid IS NULL
+          AND email IS NOT NULL
+      conditions:
+        - query: "SELECT COUNT(*) FROM customer_data WHERE email IS NOT NULL AND email_valid IS NULL"
+          operator: ">"
+          value: 0
+      type: TRANSFORM
+      batchSize: 10000
+
+    - name: validate-phone-numbers
+      description: "Validate phone numbers only if there are unvalidated numbers"
+      sql: |
+        UPDATE customer_data 
+        SET phone_valid = CASE
+          WHEN phone ~ '^\+?[1-9]\d{1,14}$' THEN true
+          ELSE false
+        END
+        WHERE phone_valid IS NULL
+          AND phone IS NOT NULL
+      conditions:
+        - query: "SELECT COUNT(*) FROM customer_data WHERE phone IS NOT NULL AND phone_valid IS NULL"
+          operator: ">"
+          value: 0
+      dependsOn: ["validate-email-addresses"]
+      type: TRANSFORM
+      batchSize: 8000
+
+    - name: calculate-quality-score
+      description: "Calculate data quality score only if validation is complete"
+      sql: |
+        UPDATE customer_data 
+        SET data_quality_score = (
+          CASE WHEN email_valid = true THEN 40 ELSE 0 END +
+          CASE WHEN phone_valid = true THEN 30 ELSE 0 END +
+          CASE WHEN email IS NOT NULL THEN 20 ELSE 0 END +
+          CASE WHEN phone IS NOT NULL THEN 10 ELSE 0 END
+        ),
+        validated_at = NOW()
+        WHERE data_quality_score IS NULL
+      conditions:
+        - query: "SELECT COUNT(*) FROM customer_data WHERE email_valid IS NOT NULL OR phone_valid IS NOT NULL"
+          operator: ">"
+          value: 100  # Only run if we have validation results
+        - query: "SELECT COUNT(*) FROM customer_data WHERE data_quality_score IS NULL"
+          operator: ">"
+          value: 50   # Only run if there are records to process
+      dependsOn: ["validate-email-addresses", "validate-phone-numbers"]
+      type: TRANSFORM
+      batchSize: 15000
+
+---
+# Business rule conditional migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: subscription-upgrade-logic
+spec:
+  database: billing
+  name: subscriptions
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: user_id
+          type: integer
+        - name: plan_type
+          type: varchar(20)
+        - name: monthly_usage
+          type: integer
+        - name: plan_limit
+          type: integer
+        - name: upgrade_recommended
+          type: boolean
+        - name: auto_upgrade_eligible
+          type: boolean
+        - name: last_evaluated_at
+          type: timestamp
+  dataMigrations:
+    - name: recommend-upgrades
+      description: "Recommend upgrades only for users exceeding 80% of plan limits"
+      sql: |
+        UPDATE subscriptions 
+        SET upgrade_recommended = true,
+            last_evaluated_at = NOW()
+        WHERE monthly_usage > (plan_limit * 0.8)
+          AND plan_type != 'unlimited'
+          AND upgrade_recommended IS NOT TRUE
+      conditions:
+        - query: "SELECT COUNT(*) FROM subscriptions WHERE monthly_usage > (plan_limit * 0.8) AND plan_type != 'unlimited'"
+          operator: ">"
+          value: 5  # Only run if there are users near limits
+        - query: "SELECT AVG(monthly_usage::float / plan_limit) FROM subscriptions WHERE plan_limit > 0"
+          operator: ">"
+          value: 50  # Only run if average usage is above 50%
+      type: TRANSFORM
+      batchSize: 2000
+
+    - name: mark-auto-upgrade-eligible
+      description: "Mark users eligible for auto-upgrade based on usage patterns"
+      sql: |
+        UPDATE subscriptions 
+        SET auto_upgrade_eligible = true
+        WHERE upgrade_recommended = true
+          AND monthly_usage > plan_limit  -- Actually exceeding limits
+          AND plan_type IN ('basic', 'standard')  -- Only certain plans auto-upgrade
+          AND auto_upgrade_eligible IS NOT TRUE
+      conditions:
+        - query: "SELECT COUNT(*) FROM subscriptions WHERE upgrade_recommended = true AND monthly_usage > plan_limit"
+          operator: ">"
+          value: 0
+        - query: "SELECT COUNT(*) FROM subscriptions WHERE auto_upgrade_eligible = true"
+          operator: "<"
+          value: 1000  # Don't auto-upgrade too many at once
+      dependsOn: ["recommend-upgrades"]
+      type: TRANSFORM
+      batchSize: 500
+
+---
+# Time-based conditional migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: audit-log-retention
+spec:
+  database: audit
+  name: audit_logs
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: user_id
+          type: integer
+        - name: action
+          type: varchar(100)
+        - name: created_at
+          type: timestamp
+        - name: log_level
+          type: varchar(10)
+        - name: archived
+          type: boolean
+        - name: purge_eligible
+          type: boolean
+  dataMigrations:
+    - name: archive-old-info-logs
+      description: "Archive INFO logs older than 90 days, only if storage is getting full"
+      sql: |
+        UPDATE audit_logs 
+        SET archived = true
+        WHERE log_level = 'INFO'
+          AND created_at < NOW() - INTERVAL '90 days'
+          AND archived IS NOT TRUE
+      conditions:
+        - query: "SELECT COUNT(*) FROM audit_logs WHERE log_level = 'INFO' AND created_at < NOW() - INTERVAL '90 days'"
+          operator: ">"
+          value: 10000  # Only if there are many old INFO logs
+        - query: "SELECT COUNT(*) FROM audit_logs WHERE archived IS NOT TRUE"
+          operator: ">"
+          value: 1000000  # Only if total unarchived logs exceed 1M
+      type: CLEANUP
+      batchSize: 25000
+      timeout: 2h
+
+    - name: mark-purge-eligible
+      description: "Mark very old logs for purging, only during maintenance windows"
+      sql: |
+        UPDATE audit_logs 
+        SET purge_eligible = true
+        WHERE created_at < NOW() - INTERVAL '2 years'
+          AND log_level IN ('DEBUG', 'INFO')
+          AND archived = true
+          AND purge_eligible IS NOT TRUE
+      conditions:
+        - query: "SELECT EXTRACT(HOUR FROM NOW())"
+          operator: ">="
+          value: 2   # Only run between 2 AM
+        - query: "SELECT EXTRACT(HOUR FROM NOW())"
+          operator: "<="
+          value: 4   # and 4 AM (maintenance window)
+        - query: "SELECT COUNT(*) FROM audit_logs WHERE created_at < NOW() - INTERVAL '2 years' AND archived = true"
+          operator: ">"
+          value: 50000  # Only if there's significant old archived data
+      dependsOn: ["archive-old-info-logs"]
+      type: CLEANUP
+      batchSize: 50000
+      timeout: 4h
+
+---
+# Environment-specific conditional migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: feature-flag-migration
+spec:
+  database: config
+  name: feature_flags
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: flag_name
+          type: varchar(100)
+        - name: environment
+          type: varchar(20)
+        - name: enabled
+          type: boolean
+        - name: rollout_percentage
+          type: integer
+        - name: auto_enabled
+          type: boolean
+        - name: stable
+          type: boolean
+  dataMigrations:
+    - name: promote-stable-flags
+      description: "Promote flags to stable only if they've been successful in staging"
+      sql: |
+        UPDATE feature_flags 
+        SET stable = true,
+            auto_enabled = true
+        WHERE environment = 'production'
+          AND enabled = true
+          AND rollout_percentage = 100
+          AND flag_name IN (
+            SELECT flag_name FROM feature_flags 
+            WHERE environment = 'staging' 
+              AND enabled = true 
+              AND rollout_percentage = 100
+          )
+          AND stable IS NOT TRUE
+      conditions:
+        - query: |
+            SELECT COUNT(*) FROM feature_flags staging
+            WHERE staging.environment = 'staging'
+              AND staging.enabled = true
+              AND staging.rollout_percentage = 100
+              AND EXISTS (
+                SELECT 1 FROM feature_flags prod
+                WHERE prod.flag_name = staging.flag_name
+                  AND prod.environment = 'production'
+                  AND prod.enabled = true
+              )
+          operator: ">"
+          value: 0  # Only run if there are staging flags ready for promotion
+      type: TRANSFORM
+      batchSize: 100
+
+    - name: disable-failed-flags
+      description: "Disable flags that have been problematic"
+      sql: |
+        UPDATE feature_flags 
+        SET enabled = false,
+            rollout_percentage = 0
+        WHERE flag_name IN (
+          SELECT flag_name FROM flag_incidents 
+          WHERE severity = 'high' 
+            AND created_at > NOW() - INTERVAL '24 hours'
+        )
+        AND enabled = true
+      conditions:
+        - query: "SELECT COUNT(*) FROM flag_incidents WHERE severity = 'high' AND created_at > NOW() - INTERVAL '24 hours'"
+          operator: ">"
+          value: 0  # Only run if there are recent high-severity incidents
+      dependsOn: ["promote-stable-flags"]
+      type: TRANSFORM
+      batchSize: 50
+
+---
+# Load balancing conditional migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: server-load-balancing
+spec:
+  database: infrastructure
+  name: server_assignments
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: user_id
+          type: int
+        - name: current_server
+          type: varchar(50)
+        - name: preferred_server
+          type: varchar(50)
+        - name: server_load
+          type: int
+        - name: needs_rebalancing
+          type: boolean
+  dataMigrations:
+    - name: identify-rebalancing-needed
+      description: "Identify servers needing load rebalancing"
+      sql: |
+        UPDATE server_assignments sa
+        JOIN (
+          SELECT 
+            current_server,
+            COUNT(*) as user_count,
+            AVG(server_load) as avg_load
+          FROM server_assignments 
+          GROUP BY current_server
+        ) server_stats ON sa.current_server = server_stats.current_server
+        SET sa.needs_rebalancing = CASE
+          WHEN server_stats.avg_load > 80 THEN true
+          ELSE false
+        END
+        WHERE sa.needs_rebalancing IS NULL
+      conditions:
+        - query: "SELECT AVG(server_load) FROM server_assignments"
+          operator: ">"
+          value: 60  # Only rebalance if average load is high
+        - query: "SELECT MAX(server_load) - MIN(server_load) FROM (SELECT AVG(server_load) as server_load FROM server_assignments GROUP BY current_server) as server_loads"
+          operator: ">"
+          value: 30  # Only if there's significant load imbalance
+      type: TRANSFORM
+      batchSize: 10000
+
+# Usage Examples:
+#
+# 1. Plan with condition checking:
+#    kubectl schemahero plan --spec-file conditional-migrations.yaml --dry-run --verbose
+#
+# 2. Apply during maintenance window:
+#    kubectl schemahero apply --spec-file conditional-migrations.yaml --show-progress
+#
+# 3. Monitor conditional execution:
+#    kubectl schemahero describe migration migration-name 

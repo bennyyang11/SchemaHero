@@ -52,7 +52,7 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 		assert.Empty(t, statements)
 	})
 
-	t.Run("unsupported database types return appropriate errors", func(t *testing.T) {
+	t.Run("all database types are now supported", func(t *testing.T) {
 		spec := &schemasv1alpha4.TableSpec{
 			Name: "users",
 			DataMigrations: []schemasv1alpha4.DataMigration{
@@ -60,14 +60,21 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 			},
 		}
 
-		unsupportedDrivers := []string{"sqlite", "rqlite", "cassandra"}
+		// All database drivers now have data migration support
+		allDrivers := []string{"postgres", "mysql", "cockroachdb", "timescaledb", "sqlite", "rqlite", "cassandra"}
 		
-		for _, driver := range unsupportedDrivers {
-			db := &Database{Driver: driver}
+		for _, driver := range allDrivers {
+			db := &Database{
+				Driver: driver,
+				URI:    "mock://connection", // Will fail connection but test routing
+			}
 			_, err := db.PlanDataMigrations(spec)
 			
-			assert.Error(t, err, "driver %s should return error", driver)
-			assert.Contains(t, err.Error(), "not yet implemented")
+			// Should fail with connection error, not "not implemented" error
+			if err != nil {
+				assert.NotContains(t, err.Error(), "not yet implemented", "driver %s should be implemented", driver)
+				assert.NotContains(t, err.Error(), "unknown database driver", "driver %s should be recognized", driver)
+			}
 		}
 	})
 
@@ -87,6 +94,9 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 			{"mysql", "native MySQL"},
 			{"cockroachdb", "uses PostgreSQL syntax"},
 			{"timescaledb", "uses PostgreSQL syntax"},
+			{"sqlite", "native SQLite"},
+			{"rqlite", "distributed SQLite"},
+			{"cassandra", "limited CQL support"},
 		}
 		
 		for _, item := range supportedDrivers {
@@ -227,9 +237,9 @@ func TestDatabaseDriverRouting(t *testing.T) {
 			{"mysql", true, ""},
 			{"cockroachdb", true, ""}, // Uses postgres
 			{"timescaledb", true, ""},  // Uses postgres
-			{"sqlite", false, "not yet implemented"},
-			{"rqlite", false, "not yet implemented"},
-			{"cassandra", false, "not yet implemented"},
+			{"sqlite", true, ""},       // Implemented in Phase 5
+			{"rqlite", true, ""},       // Implemented in Phase 5
+			{"cassandra", true, ""},    // Implemented in Phase 5 (limited)
 			{"unknown", false, "unknown database driver"},
 		}
 

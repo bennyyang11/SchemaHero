@@ -1,0 +1,387 @@
+# Calculated Field Migrations Examples
+#
+# This file demonstrates how to use data migrations for calculating and populating
+# fields based on existing data, functions, and cross-table relationships.
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: users-calculated-fields
+  annotations:
+    description: "Add calculated fields based on existing user data"
+spec:
+  database: myapp
+  name: users
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: first_name
+          type: varchar(100)
+        - name: last_name
+          type: varchar(100)
+        - name: email
+          type: varchar(255)
+        - name: full_name
+          type: varchar(255)
+        - name: normalized_email
+          type: varchar(255)
+        - name: email_domain
+          type: varchar(255)
+        - name: created_at
+          type: timestamp
+        - name: account_age_days
+          type: integer
+  dataMigrations:
+    - name: calculate-full-name
+      description: "Calculate full name from first and last name"
+      sql: |
+        UPDATE users 
+        SET full_name = TRIM(CONCAT(first_name, ' ', last_name))
+        WHERE full_name IS NULL 
+          AND (first_name IS NOT NULL OR last_name IS NOT NULL)
+      type: TRANSFORM
+      batchSize: 10000
+
+    - name: normalize-email
+      description: "Calculate normalized email address"
+      sql: |
+        UPDATE users 
+        SET normalized_email = LOWER(TRIM(email))
+        WHERE normalized_email IS NULL 
+          AND email IS NOT NULL
+      dependsOn: ["calculate-full-name"]
+      type: TRANSFORM
+      batchSize: 15000
+
+    - name: extract-email-domain
+      description: "Extract domain from email address"
+      sql: |
+        UPDATE users 
+        SET email_domain = SUBSTRING(normalized_email FROM '@(.*)$')
+        WHERE email_domain IS NULL 
+          AND normalized_email IS NOT NULL
+      dependsOn: ["normalize-email"]
+      type: TRANSFORM
+      batchSize: 15000
+
+    - name: calculate-account-age
+      description: "Calculate account age in days"
+      sql: |
+        UPDATE users 
+        SET account_age_days = EXTRACT(DAY FROM NOW() - created_at)
+        WHERE account_age_days IS NULL 
+          AND created_at IS NOT NULL
+      dependsOn: ["extract-email-domain"]
+      type: TRANSFORM
+      batchSize: 20000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: orders-calculated-totals
+  annotations:
+    description: "Calculate order totals and statistics"
+spec:
+  database: ecommerce
+  name: orders
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: customer_id
+          type: int
+        - name: subtotal
+          type: decimal(12,2)
+        - name: tax_rate
+          type: decimal(5,4)
+        - name: tax_amount
+          type: decimal(12,2)
+        - name: shipping_cost
+          type: decimal(10,2)
+        - name: total_amount
+          type: decimal(12,2)
+        - name: discount_percentage
+          type: decimal(5,2)
+        - name: final_amount
+          type: decimal(12,2)
+  dataMigrations:
+    - name: calculate-tax-amount
+      description: "Calculate tax amount from subtotal and rate"
+      sql: |
+        UPDATE orders 
+        SET tax_amount = ROUND(subtotal * tax_rate, 2)
+        WHERE tax_amount IS NULL 
+          AND subtotal IS NOT NULL 
+          AND tax_rate IS NOT NULL
+      type: TRANSFORM
+      batchSize: 8000
+
+    - name: calculate-total-amount
+      description: "Calculate total before discounts"
+      sql: |
+        UPDATE orders 
+        SET total_amount = subtotal + COALESCE(tax_amount, 0) + COALESCE(shipping_cost, 0)
+        WHERE total_amount IS NULL 
+          AND subtotal IS NOT NULL
+      dependsOn: ["calculate-tax-amount"]
+      type: TRANSFORM
+      batchSize: 8000
+
+    - name: calculate-final-amount
+      description: "Calculate final amount after discounts"
+      sql: |
+        UPDATE orders 
+        SET final_amount = total_amount * (1 - COALESCE(discount_percentage, 0) / 100)
+        WHERE final_amount IS NULL 
+          AND total_amount IS NOT NULL
+      dependsOn: ["calculate-total-amount"]
+      type: TRANSFORM
+      batchSize: 8000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: analytics-calculated-metrics
+  annotations:
+    description: "Calculate analytics metrics from raw event data"
+spec:
+  database: analytics
+  name: user_metrics
+  schema:
+    postgres:
+      columns:
+        - name: user_id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: total_sessions
+          type: integer
+        - name: total_pageviews
+          type: integer
+        - name: avg_session_duration
+          type: decimal(10,2)
+        - name: last_activity_at
+          type: timestamp
+        - name: engagement_score
+          type: decimal(5,2)
+        - name: calculated_at
+          type: timestamp
+  dataMigrations:
+    - name: calculate-session-metrics
+      description: "Calculate session count and average duration"
+      sql: |
+        UPDATE user_metrics 
+        SET total_sessions = session_data.session_count,
+            avg_session_duration = session_data.avg_duration,
+            last_activity_at = session_data.last_activity
+        FROM (
+          SELECT 
+            user_id,
+            COUNT(*) as session_count,
+            AVG(EXTRACT(EPOCH FROM duration)) as avg_duration,
+            MAX(ended_at) as last_activity
+          FROM user_sessions 
+          WHERE ended_at IS NOT NULL
+          GROUP BY user_id
+        ) session_data
+        WHERE user_metrics.user_id = session_data.user_id
+          AND user_metrics.total_sessions IS NULL
+      type: TRANSFORM
+      batchSize: 5000
+      timeout: 45m
+
+    - name: calculate-pageview-metrics
+      description: "Calculate total pageviews from events"
+      sql: |
+        UPDATE user_metrics 
+        SET total_pageviews = pageview_data.pageview_count
+        FROM (
+          SELECT 
+            user_id,
+            COUNT(*) as pageview_count
+          FROM page_events 
+          WHERE event_type = 'pageview'
+          GROUP BY user_id
+        ) pageview_data
+        WHERE user_metrics.user_id = pageview_data.user_id
+          AND user_metrics.total_pageviews IS NULL
+      dependsOn: ["calculate-session-metrics"]
+      type: TRANSFORM
+      batchSize: 5000
+
+    - name: calculate-engagement-score
+      description: "Calculate engagement score from multiple metrics"
+      sql: |
+        UPDATE user_metrics 
+        SET engagement_score = LEAST(100, 
+          (COALESCE(total_sessions, 0) * 0.3) +
+          (COALESCE(total_pageviews, 0) * 0.1) +
+          (CASE 
+            WHEN avg_session_duration > 300 THEN 30
+            WHEN avg_session_duration > 120 THEN 15
+            ELSE 5
+          END)
+        ),
+        calculated_at = NOW()
+        WHERE engagement_score IS NULL
+          AND (total_sessions IS NOT NULL OR total_pageviews IS NOT NULL)
+      dependsOn: ["calculate-session-metrics", "calculate-pageview-metrics"]
+      type: TRANSFORM
+      batchSize: 10000
+
+---
+# Time-based calculations
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: subscription-calculated-dates
+spec:
+  database: billing
+  name: subscriptions
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: user_id
+          type: integer
+        - name: plan_type
+          type: varchar(50)
+        - name: started_at
+          type: timestamp
+        - name: billing_cycle
+          type: varchar(20)
+        - name: next_billing_date
+          type: timestamp
+        - name: expires_at
+          type: timestamp
+        - name: days_remaining
+          type: integer
+  dataMigrations:
+    - name: calculate-next-billing
+      description: "Calculate next billing date based on cycle"
+      sql: |
+        UPDATE subscriptions 
+        SET next_billing_date = CASE billing_cycle
+          WHEN 'monthly' THEN started_at + INTERVAL '1 month'
+          WHEN 'quarterly' THEN started_at + INTERVAL '3 months' 
+          WHEN 'yearly' THEN started_at + INTERVAL '1 year'
+          ELSE started_at + INTERVAL '1 month'
+        END
+        WHERE next_billing_date IS NULL 
+          AND started_at IS NOT NULL
+      type: TRANSFORM
+      batchSize: 5000
+
+    - name: calculate-expiration
+      description: "Calculate subscription expiration dates"
+      sql: |
+        UPDATE subscriptions 
+        SET expires_at = CASE plan_type
+          WHEN 'trial' THEN started_at + INTERVAL '14 days'
+          WHEN 'basic' THEN started_at + INTERVAL '1 year'
+          WHEN 'premium' THEN started_at + INTERVAL '1 year'
+          ELSE started_at + INTERVAL '30 days'
+        END
+        WHERE expires_at IS NULL 
+          AND started_at IS NOT NULL
+      dependsOn: ["calculate-next-billing"]
+      type: TRANSFORM
+      batchSize: 5000
+
+    - name: calculate-days-remaining
+      description: "Calculate days remaining until expiration"
+      sql: |
+        UPDATE subscriptions 
+        SET days_remaining = GREATEST(0, 
+          EXTRACT(DAY FROM expires_at - NOW())
+        )
+        WHERE days_remaining IS NULL 
+          AND expires_at IS NOT NULL
+      dependsOn: ["calculate-expiration"]
+      type: TRANSFORM
+      batchSize: 10000
+
+---
+# Complex calculations with JSON data (PostgreSQL)
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: user-profile-calculations
+spec:
+  database: social
+  name: user_profiles
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: user_id
+          type: integer
+        - name: raw_preferences
+          type: jsonb
+        - name: calculated_score
+          type: decimal(8,2)
+        - name: preference_summary
+          type: text
+        - name: activity_level
+          type: varchar(20)
+  dataMigrations:
+    - name: calculate-preference-score
+      description: "Calculate user preference score from JSON data"
+      sql: |
+        UPDATE user_profiles 
+        SET calculated_score = (
+          COALESCE((raw_preferences->>'engagement_weight')::decimal, 1.0) * 10 +
+          COALESCE((raw_preferences->>'activity_weight')::decimal, 1.0) * 5 +
+          COALESCE(jsonb_array_length(raw_preferences->'interests'), 0) * 2
+        )
+        WHERE calculated_score IS NULL 
+          AND raw_preferences IS NOT NULL
+      type: TRANSFORM
+      batchSize: 3000
+
+    - name: generate-preference-summary
+      description: "Generate human-readable preference summary"
+      sql: |
+        UPDATE user_profiles 
+        SET preference_summary = CONCAT(
+          'Score: ', ROUND(calculated_score, 1), 
+          ', Interests: ', COALESCE(jsonb_array_length(raw_preferences->'interests'), 0),
+          ', Type: ', COALESCE(raw_preferences->>'user_type', 'standard')
+        )
+        WHERE preference_summary IS NULL 
+          AND calculated_score IS NOT NULL
+      dependsOn: ["calculate-preference-score"]
+      type: TRANSFORM
+      batchSize: 5000
+
+    - name: determine-activity-level
+      description: "Determine activity level from calculated metrics"
+      sql: |
+        UPDATE user_profiles 
+        SET activity_level = CASE
+          WHEN calculated_score > 50 THEN 'high'
+          WHEN calculated_score > 20 THEN 'medium'
+          WHEN calculated_score > 5 THEN 'low'
+          ELSE 'inactive'
+        END
+        WHERE activity_level IS NULL 
+          AND calculated_score IS NOT NULL
+      dependsOn: ["generate-preference-summary"]
+      type: TRANSFORM
+      batchSize: 8000 

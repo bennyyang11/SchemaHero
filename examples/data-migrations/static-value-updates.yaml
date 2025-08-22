@@ -1,0 +1,240 @@
+# Static Value Updates Examples
+#
+# This file demonstrates how to use data migrations for setting static values
+# in existing database records.
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: users-static-defaults
+  annotations:
+    description: "Add status column with default values for existing users"
+spec:
+  database: myapp
+  name: users
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: email
+          type: varchar(255)
+          constraints:
+            notNull: true
+        - name: status
+          type: varchar(20)
+          constraints:
+            notNull: true
+        - name: created_at
+          type: timestamp
+        - name: updated_at
+          type: timestamp
+  dataMigrations:
+    - name: set-default-status
+      description: "Set default status for existing users"
+      sql: "UPDATE users SET status = 'active' WHERE status IS NULL"
+      type: BACKFILL
+      batchSize: 5000
+      timeout: 30m
+
+    - name: set-timestamps
+      description: "Set default timestamps for legacy records"
+      sql: |
+        UPDATE users 
+        SET created_at = COALESCE(created_at, NOW()),
+            updated_at = COALESCE(updated_at, NOW())
+        WHERE created_at IS NULL OR updated_at IS NULL
+      dependsOn: ["set-default-status"]
+      type: BACKFILL
+      batchSize: 10000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: products-static-values
+  annotations:
+    description: "Add multiple static values to product catalog"
+spec:
+  database: ecommerce
+  name: products
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: name
+          type: varchar(255)
+        - name: category
+          type: varchar(100)
+        - name: price
+          type: decimal(10,2)
+        - name: currency
+          type: varchar(3)
+        - name: active
+          type: boolean
+        - name: featured
+          type: boolean
+  dataMigrations:
+    - name: set-default-currency
+      description: "Set USD as default currency for products without currency"
+      sql: "UPDATE products SET currency = 'USD' WHERE currency IS NULL"
+      type: BACKFILL
+      
+    - name: set-active-status
+      description: "Mark existing products as active by default"
+      sql: "UPDATE products SET active = true WHERE active IS NULL"
+      type: BACKFILL
+      dependsOn: ["set-default-currency"]
+      
+    - name: set-featured-status
+      description: "Set featured status based on price"
+      sql: |
+        UPDATE products 
+        SET featured = CASE 
+          WHEN price > 100.00 THEN true
+          ELSE false
+        END
+        WHERE featured IS NULL
+      dependsOn: ["set-active-status"]
+      type: TRANSFORM
+      batchSize: 3000
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: orders-status-migration
+  annotations:
+    description: "Migrate order status with conditional static values"
+spec:
+  database: ecommerce
+  name: orders
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: customer_id
+          type: integer
+        - name: total_amount
+          type: decimal(12,2)
+        - name: status
+          type: varchar(20)
+        - name: priority
+          type: varchar(10)
+        - name: created_at
+          type: timestamp
+  dataMigrations:
+    - name: set-order-status
+      description: "Set default status for orders without status"
+      sql: |
+        UPDATE orders 
+        SET status = CASE
+          WHEN created_at > NOW() - INTERVAL '24 hours' THEN 'recent'
+          WHEN created_at > NOW() - INTERVAL '30 days' THEN 'pending'
+          ELSE 'legacy'
+        END
+        WHERE status IS NULL
+      type: BACKFILL
+      batchSize: 8000
+      
+    - name: set-order-priority
+      description: "Set priority based on order value"
+      sql: |
+        UPDATE orders 
+        SET priority = CASE
+          WHEN total_amount > 1000.00 THEN 'high'
+          WHEN total_amount > 100.00 THEN 'medium'
+          ELSE 'low'
+        END
+        WHERE priority IS NULL
+      dependsOn: ["set-order-status"]
+      type: TRANSFORM
+      batchSize: 5000
+
+---
+# SQLite Example for Local Development
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: local-app-settings
+spec:
+  database: localapp
+  name: app_settings
+  schema:
+    sqlite:
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: key
+          type: text
+        - name: value
+          type: text
+        - name: category
+          type: text
+        - name: is_default
+          type: boolean
+  dataMigrations:
+    - name: set-default-settings
+      description: "Initialize default application settings"
+      sql: |
+        UPDATE app_settings 
+        SET is_default = CASE
+          WHEN key IN ('theme', 'language', 'timezone') THEN 1
+          ELSE 0
+        END
+        WHERE is_default IS NULL
+      type: BACKFILL
+      
+    - name: categorize-settings
+      description: "Set categories for settings without categories"
+      sql: |
+        UPDATE app_settings 
+        SET category = CASE
+          WHEN key LIKE 'ui_%' THEN 'interface'
+          WHEN key LIKE 'auth_%' THEN 'authentication'
+          WHEN key LIKE 'email_%' THEN 'notifications'
+          ELSE 'general'
+        END
+        WHERE category IS NULL
+      dependsOn: ["set-default-settings"]
+      type: TRANSFORM
+      batchSize: 1000
+
+---
+# Cassandra Example with CQL
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: cassandra-user-sessions
+spec:
+  database: sessionstore
+  name: user_sessions
+  schema:
+    cassandra:
+      columns:
+        - name: user_id
+          type: uuid
+        - name: session_id
+          type: uuid
+        - name: status
+          type: text
+        - name: created_at
+          type: timestamp
+      primaryKey:
+        - user_id
+        - session_id
+  dataMigrations:
+    - name: set-session-status
+      description: "Set default status for sessions (Cassandra CQL)"
+      sql: "UPDATE user_sessions SET status = 'active' WHERE user_id = ? AND session_id = ?"
+      type: BACKFILL
+      # Note: Cassandra requires parameterized queries with primary key 

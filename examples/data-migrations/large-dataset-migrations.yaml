@@ -1,0 +1,569 @@
+# Large Dataset Migrations Examples
+#
+# This file demonstrates how to handle enterprise-scale data migrations
+# with performance optimization, batching, and monitoring.
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: enterprise-user-migration
+  annotations:
+    description: "Migrate 10M+ user records with performance optimization"
+spec:
+  database: enterprise_db
+  name: users
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: email
+          type: varchar(255)
+        - name: normalized_email
+          type: varchar(255)
+        - name: email_hash
+          type: varchar(64)
+        - name: status
+          type: varchar(20)
+        - name: tier
+          type: varchar(20)
+        - name: migrated_at
+          type: timestamp
+        - name: migration_batch
+          type: integer
+      indexes:
+        - name: idx_users_email
+          columns: ["email"]
+        - name: idx_users_status
+          columns: ["status"]
+        - name: idx_users_migrated_at
+          columns: ["migrated_at"]
+  dataMigrations:
+    - name: normalize-emails-batch-1
+      description: "Normalize email addresses for first 5M users"
+      sql: |
+        UPDATE users 
+        SET normalized_email = LOWER(TRIM(email)),
+            email_hash = MD5(LOWER(TRIM(email))),
+            migration_batch = 1,
+            migrated_at = NOW()
+        WHERE id BETWEEN 1 AND 5000000
+          AND normalized_email IS NULL
+          AND email IS NOT NULL
+      type: TRANSFORM
+      batchSize: 50000        # Large batches for efficiency
+      batchDelayMs: 1000      # 1 second delay between batches
+      timeout: 6h             # Allow plenty of time
+      priority: 5
+
+    - name: normalize-emails-batch-2
+      description: "Normalize email addresses for second 5M users"
+      sql: |
+        UPDATE users 
+        SET normalized_email = LOWER(TRIM(email)),
+            email_hash = MD5(LOWER(TRIM(email))),
+            migration_batch = 2,
+            migrated_at = NOW()
+        WHERE id BETWEEN 5000001 AND 10000000
+          AND normalized_email IS NULL
+          AND email IS NOT NULL
+      dependsOn: ["normalize-emails-batch-1"]
+      type: TRANSFORM
+      batchSize: 50000
+      batchDelayMs: 1000
+      timeout: 6h
+      priority: 4
+
+    - name: set-user-tiers
+      description: "Calculate user tiers based on activity"
+      sql: |
+        UPDATE users 
+        SET tier = CASE
+          WHEN id IN (
+            SELECT user_id FROM user_activity 
+            WHERE last_login > NOW() - INTERVAL '30 days'
+            GROUP BY user_id 
+            HAVING COUNT(*) > 50
+          ) THEN 'premium'
+          WHEN id IN (
+            SELECT user_id FROM user_activity 
+            WHERE last_login > NOW() - INTERVAL '90 days'
+            GROUP BY user_id 
+            HAVING COUNT(*) > 10
+          ) THEN 'active'
+          ELSE 'standard'
+        END,
+        migrated_at = NOW()
+        WHERE tier IS NULL
+          AND migration_batch IS NOT NULL
+      dependsOn: ["normalize-emails-batch-1", "normalize-emails-batch-2"]
+      type: TRANSFORM
+      batchSize: 25000
+      timeout: 4h
+
+---
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: transaction-history-migration
+  annotations:
+    description: "Migrate 50M+ transaction records with optimized batching"
+spec:
+  database: financial_db
+  name: transactions
+  schema:
+    mysql:
+      columns:
+        - name: id
+          type: bigint
+          constraints:
+            primaryKey: true
+        - name: user_id
+          type: int
+        - name: amount
+          type: decimal(15,2)
+        - name: currency
+          type: varchar(3)
+        - name: amount_usd
+          type: decimal(15,2)
+        - name: created_at
+          type: timestamp
+        - name: processed_at
+          type: timestamp
+        - name: processing_time_seconds
+          type: int
+      indexes:
+        - name: idx_transactions_user_created
+          columns: ["user_id", "created_at"]
+        - name: idx_transactions_amount
+          columns: ["amount_usd"]
+  dataMigrations:
+    - name: convert-to-usd-recent
+      description: "Convert recent transactions to USD (last 90 days)"
+      sql: |
+        UPDATE transactions t
+        JOIN exchange_rates er ON t.currency = er.currency 
+        SET t.amount_usd = t.amount * er.rate_to_usd
+        WHERE t.amount_usd IS NULL
+          AND t.created_at > NOW() - INTERVAL 90 DAY
+          AND er.date = DATE(t.created_at)
+      type: TRANSFORM
+      batchSize: 100000       # Very large batches for bulk operations
+      batchDelayMs: 500       # Short delay for recent data
+      timeout: 4h
+      priority: 10
+
+    - name: convert-to-usd-historical
+      description: "Convert historical transactions to USD (slower processing)"
+      sql: |
+        UPDATE transactions t
+        JOIN exchange_rates er ON t.currency = er.currency
+        SET t.amount_usd = t.amount * er.rate_to_usd
+        WHERE t.amount_usd IS NULL
+          AND t.created_at <= NOW() - INTERVAL 90 DAY
+          AND ABS(DATEDIFF(er.date, DATE(t.created_at))) <= 1
+      dependsOn: ["convert-to-usd-recent"]
+      type: TRANSFORM
+      batchSize: 25000        # Smaller batches for historical data
+      batchDelayMs: 2000      # Longer delay to reduce load
+      timeout: 12h            # Much longer timeout
+      priority: 3
+
+    - name: calculate-processing-times
+      description: "Calculate processing times for completed transactions"
+      sql: |
+        UPDATE transactions 
+        SET processing_time_seconds = TIMESTAMPDIFF(SECOND, created_at, processed_at)
+        WHERE processing_time_seconds IS NULL
+          AND processed_at IS NOT NULL
+          AND created_at IS NOT NULL
+      dependsOn: ["convert-to-usd-historical"]
+      type: TRANSFORM
+      batchSize: 75000
+      timeout: 3h
+
+---
+# Memory-optimized migration for very large tables
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: log-data-optimization
+  annotations:
+    description: "Optimize 100M+ log records with memory-efficient processing"
+spec:
+  database: logs_db
+  name: application_logs
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: message
+          type: text
+        - name: log_level
+          type: varchar(10)
+        - name: structured_data
+          type: jsonb
+        - name: message_hash
+          type: varchar(64)
+        - name: category
+          type: varchar(50)
+        - name: processed
+          type: boolean
+        - name: created_at
+          type: timestamp
+      indexes:
+        - name: idx_logs_created_level
+          columns: ["created_at", "log_level"]
+        - name: idx_logs_hash
+          columns: ["message_hash"]
+  dataMigrations:
+    - name: process-error-logs
+      description: "Process ERROR level logs first (highest priority)"
+      sql: |
+        UPDATE application_logs 
+        SET message_hash = MD5(message),
+            category = 'error',
+            processed = true
+        WHERE log_level = 'ERROR'
+          AND processed IS NULL
+          AND created_at > NOW() - INTERVAL '30 days'
+      type: TRANSFORM
+      batchSize: 10000        # Smaller batches for error logs
+      batchDelayMs: 100       # Fast processing for errors
+      timeout: 2h
+      priority: 10
+
+    - name: process-warn-logs
+      description: "Process WARN level logs (medium priority)"
+      sql: |
+        UPDATE application_logs 
+        SET message_hash = MD5(message),
+            category = 'warning', 
+            processed = true
+        WHERE log_level = 'WARN'
+          AND processed IS NULL
+          AND created_at > NOW() - INTERVAL '30 days'
+      dependsOn: ["process-error-logs"]
+      type: TRANSFORM
+      batchSize: 25000
+      batchDelayMs: 500
+      timeout: 4h
+      priority: 5
+
+    - name: process-info-logs
+      description: "Process INFO level logs (lower priority, larger batches)"
+      sql: |
+        UPDATE application_logs 
+        SET message_hash = MD5(message),
+            category = 'information',
+            processed = true
+        WHERE log_level = 'INFO'
+          AND processed IS NULL
+          AND created_at > NOW() - INTERVAL '7 days'  # Only recent INFO logs
+      dependsOn: ["process-warn-logs"]
+      type: TRANSFORM
+      batchSize: 100000       # Very large batches for bulk processing
+      batchDelayMs: 2000      # Longer delay to manage load
+      timeout: 8h
+      priority: 2
+
+    - name: archive-old-logs
+      description: "Mark very old logs for archival"
+      sql: |
+        UPDATE application_logs 
+        SET category = 'archived',
+            processed = true
+        WHERE created_at < NOW() - INTERVAL '90 days'
+          AND processed IS NULL
+      dependsOn: ["process-info-logs"]
+      type: CLEANUP
+      batchSize: 50000
+      batchDelayMs: 3000      # Very slow processing for archival
+      timeout: 24h            # Allow up to 24 hours
+      priority: 1
+
+---
+# Template-based large dataset processing
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: templated-large-migration
+spec:
+  database: warehouse
+  name: sales_data
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: sale_date
+          type: date
+        - name: amount
+          type: decimal(12,2)
+        - name: region
+          type: varchar(50)
+        - name: quarter
+          type: varchar(7)
+        - name: year
+          type: integer
+        - name: amount_category
+          type: varchar(20)
+  dataMigrations:
+    - name: calculate-time-dimensions
+      description: "Calculate quarter and year from sale_date for 50M+ records"
+      template:
+        template: |
+          UPDATE {{.table_name}}
+          SET quarter = CONCAT(
+            EXTRACT(YEAR FROM sale_date), 
+            '-Q', 
+            EXTRACT(QUARTER FROM sale_date)
+          ),
+          year = EXTRACT(YEAR FROM sale_date)
+          WHERE {{.date_column}} BETWEEN {{.start_date | quote}} AND {{.end_date | quote}}
+            AND quarter IS NULL
+        parameters:
+          - name: date_column
+            type: column
+            default: "sale_date"
+          - name: start_date
+            type: date
+            required: true
+          - name: end_date
+            type: date
+            required: true
+      type: TRANSFORM
+      batchSize: 100000       # Very large batches for simple calculations
+      batchDelayMs: 1000
+      timeout: 8h
+
+    - name: categorize-amounts
+      description: "Categorize sales amounts for analysis"
+      sql: |
+        UPDATE sales_data 
+        SET amount_category = CASE
+          WHEN amount > 10000 THEN 'enterprise'
+          WHEN amount > 1000 THEN 'business'
+          WHEN amount > 100 THEN 'professional'
+          ELSE 'personal'
+        END
+        WHERE amount_category IS NULL
+          AND amount IS NOT NULL
+      dependsOn: ["calculate-time-dimensions"]
+      type: TRANSFORM
+      batchSize: 150000       # Largest batches for simple CASE statements
+      batchDelayMs: 800
+      timeout: 6h
+
+---
+# Multi-table large dataset migration
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: denormalized-reporting-data
+spec:
+  database: reporting
+  name: user_order_summary
+  schema:
+    mysql:
+      columns:
+        - name: user_id
+          type: int
+          constraints:
+            primaryKey: true
+        - name: total_orders
+          type: int
+        - name: total_spent
+          type: decimal(15,2)
+        - name: avg_order_value
+          type: decimal(10,2)
+        - name: first_order_date
+          type: timestamp
+        - name: last_order_date
+          type: timestamp
+        - name: customer_lifetime_days
+          type: int
+  dataMigrations:
+    - name: calculate-order-summary
+      description: "Calculate order summary from 100M+ order records"
+      sql: |
+        INSERT INTO user_order_summary (
+          user_id, total_orders, total_spent, avg_order_value,
+          first_order_date, last_order_date, customer_lifetime_days
+        )
+        SELECT 
+          o.user_id,
+          COUNT(*) as total_orders,
+          SUM(o.total_amount) as total_spent,
+          AVG(o.total_amount) as avg_order_value,
+          MIN(o.created_at) as first_order_date,
+          MAX(o.created_at) as last_order_date,
+          DATEDIFF(MAX(o.created_at), MIN(o.created_at)) as customer_lifetime_days
+        FROM orders o
+        WHERE o.status = 'completed'
+          AND o.user_id NOT IN (SELECT user_id FROM user_order_summary)
+        GROUP BY o.user_id
+        HAVING COUNT(*) > 0
+      type: COPY
+      batchSize: 10000        # Process 10K users at a time
+      batchDelayMs: 5000      # 5 second delay to reduce database load
+      timeout: 24h            # Allow up to 24 hours for completion
+      priority: 1
+
+---
+# Partitioned table migration strategy
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: time-partitioned-events
+spec:
+  database: events_db
+  name: user_events
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: user_id
+          type: integer
+        - name: event_type
+          type: varchar(50)
+        - name: event_data
+          type: jsonb
+        - name: created_at
+          type: timestamp
+        - name: processed
+          type: boolean
+        - name: enriched_data
+          type: jsonb
+      indexes:
+        - name: idx_events_user_created
+          columns: ["user_id", "created_at"]
+        - name: idx_events_type_created
+          columns: ["event_type", "created_at"]
+  dataMigrations:
+    - name: enrich-current-month
+      description: "Enrich current month events (highest priority)"
+      sql: |
+        UPDATE user_events 
+        SET enriched_data = jsonb_build_object(
+          'user_id', user_id,
+          'event_type', event_type,
+          'month', EXTRACT(MONTH FROM created_at),
+          'year', EXTRACT(YEAR FROM created_at),
+          'day_of_week', EXTRACT(DOW FROM created_at),
+          'processed_at', NOW()
+        ),
+        processed = true
+        WHERE created_at >= DATE_TRUNC('month', NOW())
+          AND processed IS NOT TRUE
+      type: TRANSFORM
+      batchSize: 75000        # Large batches for recent data
+      batchDelayMs: 500       # Fast processing for current data
+      timeout: 4h
+      priority: 10
+
+    - name: enrich-last-3-months
+      description: "Enrich last 3 months events (medium priority)"
+      sql: |
+        UPDATE user_events 
+        SET enriched_data = jsonb_build_object(
+          'user_id', user_id,
+          'event_type', event_type,
+          'month', EXTRACT(MONTH FROM created_at),
+          'year', EXTRACT(YEAR FROM created_at),
+          'day_of_week', EXTRACT(DOW FROM created_at),
+          'processed_at', NOW()
+        ),
+        processed = true
+        WHERE created_at >= NOW() - INTERVAL '3 months'
+          AND created_at < DATE_TRUNC('month', NOW())
+          AND processed IS NOT TRUE
+      dependsOn: ["enrich-current-month"]
+      type: TRANSFORM
+      batchSize: 50000
+      batchDelayMs: 2000      # Slower processing for historical data
+      timeout: 12h
+      priority: 5
+
+    - name: archive-old-events
+      description: "Mark old events for archival (lowest priority)"
+      sql: |
+        UPDATE user_events 
+        SET enriched_data = jsonb_build_object(
+          'archived', true,
+          'archive_reason', 'age_based',
+          'archived_at', NOW()
+        ),
+        processed = true
+        WHERE created_at < NOW() - INTERVAL '1 year'
+          AND processed IS NOT TRUE
+      dependsOn: ["enrich-last-3-months"]
+      type: CLEANUP
+      batchSize: 200000       # Very large batches for archival
+      batchDelayMs: 5000      # Slowest processing for old data
+      timeout: 48h            # Allow up to 48 hours
+      priority: 1
+
+---
+# Memory-efficient JSON processing
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: large-json-migration
+spec:
+  database: content_db
+  name: user_content
+  schema:
+    postgres:
+      columns:
+        - name: id
+          type: bigserial
+        - name: user_id
+          type: integer
+        - name: raw_content
+          type: jsonb
+        - name: processed_content
+          type: jsonb
+        - name: content_type
+          type: varchar(50)
+        - name: word_count
+          type: integer
+        - name: created_at
+          type: timestamp
+  dataMigrations:
+    - name: process-json-content-small-batches
+      description: "Process large JSON content in small memory-efficient batches"
+      sql: |
+        UPDATE user_content 
+        SET processed_content = jsonb_build_object(
+          'title', raw_content->>'title',
+          'summary', LEFT(raw_content->>'content', 500),
+          'metadata', raw_content->'metadata',
+          'processed_at', extract(epoch from NOW())
+        ),
+        content_type = COALESCE(raw_content->>'type', 'unknown'),
+        word_count = array_length(
+          string_to_array(raw_content->>'content', ' '), 
+          1
+        )
+        WHERE processed_content IS NULL
+          AND raw_content IS NOT NULL
+          AND jsonb_typeof(raw_content) = 'object'
+      type: TRANSFORM
+      batchSize: 2000         # Small batches for JSON processing
+      batchDelayMs: 3000      # Long delay for memory management
+      timeout: 48h            # Very long timeout for complex processing
+      priority: 3
+
+# Performance monitoring recommendations:
+#
+# 1. Monitor database CPU and memory usage during migration
+# 2. Watch for connection pool exhaustion
+# 3. Check for lock contention on target tables
+# 4. Monitor application performance if database is in use
+# 5. Consider read replicas for reporting during migration
+# 6. Plan for VACUUM/ANALYZE after large UPDATEs (PostgreSQL)
+# 7. Monitor replication lag if using database replication 
