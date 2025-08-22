@@ -91,14 +91,40 @@ func GetMigrationsCmd() *cobra.Command {
 
 			rows := [][]string{}
 			for _, m := range matchingMigrations {
+				// Determine migration type and status
+				migrationType := "DDL"
+				migrationStatus := string(m.Status.Phase)
+				
+				if m.Spec.GeneratedDML != "" {
+					if m.Spec.GeneratedDDL != "" {
+						migrationType = "DDL+DML"
+					} else {
+						migrationType = "DML"
+					}
+					
+					// Show more detailed status for data migrations
+					if m.Status.DataMigrationStatus != "" {
+						schemaStatus := string(m.Status.SchemaMigrationStatus)
+						dataStatus := string(m.Status.DataMigrationStatus)
+						if schemaStatus != "" && dataStatus != "" {
+							migrationStatus = fmt.Sprintf("S:%s D:%s", 
+								shortenStatus(schemaStatus), 
+								shortenStatus(dataStatus))
+						} else if dataStatus != "" {
+							migrationStatus = shortenStatus(dataStatus)
+						}
+					}
+				}
+
 				rows = append(rows, []string{
 					m.Name,
 					m.Spec.DatabaseName,
 					m.Spec.TableName,
+					migrationType,
+					migrationStatus,
 					timestampToAge(m.Status.PlannedAt),
 					timestampToAge(m.Status.ExecutedAt),
 					timestampToAge(m.Status.ApprovedAt),
-					timestampToAge(m.Status.RejectedAt),
 				})
 			}
 
@@ -108,10 +134,10 @@ func GetMigrationsCmd() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "ID\tDATABASE\tTABLE\tPLANNED\tEXECUTED\tAPPROVED\tREJECTED")
+			fmt.Fprintln(w, "ID\tDATABASE\tTABLE\tTYPE\tSTATUS\tPLANNED\tEXECUTED\tAPPROVED")
 
 			for _, row := range rows {
-				fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s", row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
+				fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s", row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
 			}
 			w.Flush()
 
@@ -125,6 +151,29 @@ func GetMigrationsCmd() *cobra.Command {
 	// cmd.Flags().StringP("status", "s", "", "status to filter to results to")
 
 	return cmd
+}
+
+// shortenStatus provides a shortened version of migration status for table display
+func shortenStatus(status string) string {
+	switch status {
+	case "PENDING":
+		return "PEND"
+	case "RUNNING":
+		return "RUN"
+	case "COMPLETED":
+		return "COMP"
+	case "FAILED":
+		return "FAIL"
+	case "SKIPPED":
+		return "SKIP"
+	case "ROLLED_BACK":
+		return "ROLL"
+	default:
+		if len(status) > 4 {
+			return status[:4]
+		}
+		return status
+	}
 }
 
 func timestampToAge(t int64) string {

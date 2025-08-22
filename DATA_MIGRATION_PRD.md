@@ -300,20 +300,20 @@ status:
 **Objective**: Create engine to generate DML statements from migration specs
 
 **Tasks:**
-- [ ] Create `pkg/database/interfaces/datamigration.go` interface
-- [ ] Implement PostgreSQL data migration planner in `pkg/database/postgres/datamigration.go`
-- [ ] Implement MySQL data migration planner in `pkg/database/mysql/datamigration.go`
-- [ ] Add template processing and parameter substitution
-- [ ] Implement condition evaluation logic
-- [ ] Add dependency resolution algorithm
+- [x] Create `pkg/database/interfaces/datamigration.go` interface
+- [x] Implement PostgreSQL data migration planner in `pkg/database/postgres/datamigration.go`
+- [x] Implement MySQL data migration planner in `pkg/database/mysql/datamigration.go`
+- [x] Add template processing and parameter substitution
+- [x] Implement condition evaluation logic
+- [x] Add dependency resolution algorithm
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test DML generation for each database type
-- [ ] **Unit Tests**: Verify template parameter substitution
-- [ ] **Unit Tests**: Test condition evaluation with mock data
-- [ ] **Unit Tests**: Validate dependency ordering algorithm
-- [ ] **Integration Tests**: Test against real database instances
-- [ ] **Integration Tests**: Verify generated SQL executes correctly
+- [x] **Unit Tests**: Test DML generation for each database type
+- [x] **Unit Tests**: Verify template parameter substitution
+- [x] **Unit Tests**: Test condition evaluation with mock data
+- [x] **Unit Tests**: Validate dependency ordering algorithm
+- [x] **Integration Tests**: Test against real database instances
+- [x] **Integration Tests**: Verify generated SQL executes correctly
 
 **Files to Create:**
 - `pkg/database/interfaces/datamigration.go`
@@ -324,61 +324,61 @@ status:
 - `pkg/database/datamigration/conditions.go`
 
 **Acceptance Criteria:**
-- [ ] Can generate valid DML for all supported databases
-- [ ] Template system handles complex parameter substitution
-- [ ] Condition evaluation works with database-specific syntax
-- [ ] Dependency resolution prevents circular dependencies
+- [x] Can generate valid DML for all supported databases
+- [x] Template system handles complex parameter substitution
+- [x] Condition evaluation works with database-specific syntax
+- [x] Dependency resolution prevents circular dependencies
 
 #### Step 2.2: Implement Migration Execution Engine
 **Objective**: Build safe execution engine for data migrations
 
 **Tasks:**
-- [ ] Create `pkg/controller/migration/executor.go`
-- [ ] Implement transaction-based execution where supported
-- [ ] Add batching logic for large table operations
-- [ ] Implement timeout and cancellation handling
-- [ ] Add progress tracking and status reporting
-- [ ] Create rollback mechanism where possible
+- [x] Create `pkg/controller/migration/executor.go`
+- [x] Implement transaction-based execution where supported
+- [x] Add batching logic for large table operations
+- [x] Implement timeout and cancellation handling
+- [x] Add progress tracking and status reporting
+- [x] Create rollback mechanism where possible
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test execution engine with mock database connections
-- [ ] **Unit Tests**: Verify batch processing logic
-- [ ] **Unit Tests**: Test timeout and cancellation handling
-- [ ] **Unit Tests**: Validate progress tracking accuracy
-- [ ] **Integration Tests**: Execute real migrations against test databases
-- [ ] **Integration Tests**: Test rollback scenarios
-- [ ] **End-to-End Tests**: Full migration lifecycle with large datasets
+- [x] **Unit Tests**: Test execution engine with mock database connections
+- [x] **Unit Tests**: Verify batch processing logic
+- [x] **Unit Tests**: Test timeout and cancellation handling
+- [x] **Unit Tests**: Validate progress tracking accuracy
+- [x] **Integration Tests**: Execute real migrations against test databases
+- [x] **Integration Tests**: Test rollback scenarios
+- [x] **End-to-End Tests**: Full migration lifecycle with large datasets
 
 **Acceptance Criteria:**
-- [ ] Executes data migrations safely with proper error handling
-- [ ] Batching works efficiently for large tables (>1M rows)
-- [ ] Timeouts prevent runaway operations
-- [ ] Progress reporting provides useful feedback
-- [ ] Rollback works for supported database transactions
+- [x] Executes data migrations safely with proper error handling
+- [x] Batching works efficiently for large tables (>1M rows)
+- [x] Timeouts prevent runaway operations
+- [x] Progress reporting provides useful feedback
+- [x] Rollback works for supported database transactions
 
 #### Step 2.3: Build Data Migration Validator
 **Objective**: Create validation layer to prevent dangerous operations
 
 **Tasks:**
-- [ ] Create `pkg/controller/migration/validator.go`
-- [ ] Implement SQL syntax validation
-- [ ] Add safety checks for destructive operations
-- [ ] Create whitelist/blacklist for allowed SQL operations
-- [ ] Implement dependency cycle detection
-- [ ] Add resource usage estimation
+- [x] Create `pkg/controller/migration/validator.go`
+- [x] Implement SQL syntax validation
+- [x] Add safety checks for destructive operations
+- [x] Create whitelist/blacklist for allowed SQL operations
+- [x] Implement dependency cycle detection
+- [x] Add resource usage estimation
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test SQL syntax validation for each database
-- [ ] **Unit Tests**: Verify safety checks catch dangerous operations
-- [ ] **Unit Tests**: Test dependency cycle detection
-- [ ] **Unit Tests**: Validate resource estimation accuracy
-- [ ] **Integration Tests**: Test validator against real migration scenarios
+- [x] **Unit Tests**: Test SQL syntax validation for each database
+- [x] **Unit Tests**: Verify safety checks catch dangerous operations
+- [x] **Unit Tests**: Test dependency cycle detection
+- [x] **Unit Tests**: Validate resource estimation accuracy
+- [x] **Integration Tests**: Test validator against real migration scenarios
 
 **Acceptance Criteria:**
-- [ ] Prevents obviously dangerous operations (DROP, TRUNCATE without approval)
-- [ ] Validates SQL syntax for target database
-- [ ] Detects dependency cycles and ordering issues
-- [ ] Provides useful error messages for validation failures
+- [x] Prevents obviously dangerous operations (DROP, TRUNCATE without approval)
+- [x] Validates SQL syntax for target database
+- [x] Detects dependency cycles and ordering issues
+- [x] Provides useful error messages for validation failures
 
 ### Phase 3: Controller Integration (Weeks 5-6)
 
@@ -386,18 +386,18 @@ status:
 **Objective**: Integrate data migration planning into table reconciliation
 
 **Tasks:**
-- [ ] Modify `pkg/controller/table/reconcile_table.go` to call data migration planner
-- [ ] Update planning logic in `pkg/database/database.go` to include data migrations
-- [ ] Implement schema-then-data execution ordering
-- [ ] Add data migration status tracking to table status
-- [ ] Update SHA calculation to include data migration specs
+- [x] Modify `pkg/controller/table/reconcile_table.go` to call data migration planner
+- [x] Update planning logic in `pkg/database/database.go` to include data migrations
+- [x] Implement schema-then-data execution ordering
+- [x] Add data migration status tracking to table status
+- [x] Update SHA calculation to include data migration specs
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test enhanced planning logic with mock databases
-- [ ] **Unit Tests**: Verify execution ordering (schema before data)
-- [ ] **Unit Tests**: Test status tracking updates
-- [ ] **Integration Tests**: Test full table reconciliation with data migrations
-- [ ] **Integration Tests**: Verify migration generation includes both DDL and DML
+- [x] **Unit Tests**: Test enhanced planning logic with mock databases
+- [x] **Unit Tests**: Verify execution ordering (schema before data)
+- [x] **Unit Tests**: Test status tracking updates
+- [x] **Integration Tests**: Test full table reconciliation with data migrations
+- [x] **Integration Tests**: Verify migration generation includes both DDL and DML
 
 **Files to Modify:**
 - `pkg/controller/table/reconcile_table.go`
@@ -405,56 +405,56 @@ status:
 - `pkg/apis/schemas/v1alpha4/table_types.go`
 
 **Acceptance Criteria:**
-- [ ] Table controller generates migrations with both schema and data changes
-- [ ] Execution order ensures schema changes complete before data changes
-- [ ] Status reporting includes data migration progress
-- [ ] Backward compatibility maintained for tables without data migrations
+- [x] Table controller generates migrations with both schema and data changes
+- [x] Execution order ensures schema changes complete before data changes
+- [x] Status reporting includes data migration progress
+- [x] Backward compatibility maintained for tables without data migrations
 
 #### Step 3.2: Enhance Migration Controller
 **Objective**: Extend migration controller to handle data migration lifecycle
 
 **Tasks:**
-- [ ] Modify `pkg/controller/migration/migration_controller.go` to handle data migrations
-- [ ] Implement separate approval tracking for schema vs data changes
-- [ ] Add execution status reporting for data migration steps
-- [ ] Implement retry logic for failed data migrations
-- [ ] Add metrics collection for data migration performance
+- [x] Modify `pkg/controller/migration/migration_controller.go` to handle data migrations
+- [x] Implement separate approval tracking for schema vs data changes
+- [x] Add execution status reporting for data migration steps
+- [x] Implement retry logic for failed data migrations
+- [x] Add metrics collection for data migration performance
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test enhanced migration reconciliation logic
-- [ ] **Unit Tests**: Verify approval workflow for combined migrations
-- [ ] **Unit Tests**: Test retry logic for failed data migrations
-- [ ] **Integration Tests**: Test full migration lifecycle with data changes
-- [ ] **End-to-End Tests**: Test migration approval and execution in real cluster
+- [x] **Unit Tests**: Test enhanced migration reconciliation logic
+- [x] **Unit Tests**: Verify approval workflow for combined migrations
+- [x] **Unit Tests**: Test retry logic for failed data migrations
+- [x] **Integration Tests**: Test full migration lifecycle with data changes
+- [x] **End-to-End Tests**: Test migration approval and execution in real cluster
 
 **Acceptance Criteria:**
-- [ ] Migration controller handles both schema and data phases
-- [ ] Approval workflow works for combined migrations
-- [ ] Failed data migrations can be retried safely
-- [ ] Performance metrics are collected and reported
+- [x] Migration controller handles both schema and data phases
+- [x] Approval workflow works for combined migrations
+- [x] Failed data migrations can be retried safely
+- [x] Performance metrics are collected and reported
 
 #### Step 3.3: Add Migration Execution Orchestration
 **Objective**: Coordinate schema and data migration execution
 
 **Tasks:**
-- [ ] Create execution coordinator in `pkg/controller/migration/coordinator.go`
-- [ ] Implement phase-based execution (schema → data)
-- [ ] Add rollback coordination for failed migrations
-- [ ] Implement execution locks to prevent concurrent modifications
-- [ ] Add execution status reporting and progress tracking
+- [x] Create execution coordinator in `pkg/controller/migration/coordinator.go`
+- [x] Implement phase-based execution (schema → data)
+- [x] Add rollback coordination for failed migrations
+- [x] Implement execution locks to prevent concurrent modifications
+- [x] Add execution status reporting and progress tracking
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test execution phase coordination
-- [ ] **Unit Tests**: Verify rollback coordination logic
-- [ ] **Unit Tests**: Test execution locking mechanism
-- [ ] **Integration Tests**: Test coordinated execution against real databases
-- [ ] **End-to-End Tests**: Test rollback scenarios in real cluster
+- [x] **Unit Tests**: Test execution phase coordination
+- [x] **Unit Tests**: Verify rollback coordination logic
+- [x] **Unit Tests**: Test execution locking mechanism
+- [x] **Integration Tests**: Test coordinated execution against real databases
+- [x] **End-to-End Tests**: Test rollback scenarios in real cluster
 
 **Acceptance Criteria:**
-- [ ] Schema changes always complete before data changes
-- [ ] Failed migrations can trigger appropriate rollback
-- [ ] Concurrent migration attempts are prevented
-- [ ] Clear status reporting throughout execution
+- [x] Schema changes always complete before data changes
+- [x] Failed migrations can trigger appropriate rollback
+- [x] Concurrent migration attempts are prevented
+- [x] Clear status reporting throughout execution
 
 ### Phase 4: CLI Enhancement (Week 7)
 
@@ -462,66 +462,66 @@ status:
 **Objective**: Update CLI to support data migration planning and preview
 
 **Tasks:**
-- [ ] Modify `pkg/cli/schemaherokubectlcli/plan.go` to show data migration preview
-- [ ] Add flags for data-migration-only planning
-- [ ] Implement dry-run mode for data migrations
-- [ ] Add estimated execution time and affected rows reporting
-- [ ] Update output formatting to show both DDL and DML
+- [x] Modify `pkg/cli/schemaherokubectlcli/plan.go` to show data migration preview
+- [x] Add flags for data-migration-only planning
+- [x] Implement dry-run mode for data migrations
+- [x] Add estimated execution time and affected rows reporting
+- [x] Update output formatting to show both DDL and DML
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test plan command with data migration specs
-- [ ] **Unit Tests**: Verify dry-run mode functionality
-- [ ] **Unit Tests**: Test output formatting for combined migrations
-- [ ] **Integration Tests**: Test plan command against real databases
-- [ ] **End-to-End Tests**: Test CLI workflow in real environment
+- [x] **Unit Tests**: Test plan command with data migration specs
+- [x] **Unit Tests**: Verify dry-run mode functionality
+- [x] **Unit Tests**: Test output formatting for combined migrations
+- [x] **Integration Tests**: Test plan command against real databases
+- [x] **End-to-End Tests**: Test CLI workflow in real environment
 
 **Acceptance Criteria:**
-- [ ] Plan command shows preview of both schema and data changes
-- [ ] Dry-run mode provides accurate preview without executing
-- [ ] Output clearly distinguishes between DDL and DML operations
-- [ ] Estimated execution metrics are reasonably accurate
+- [x] Plan command shows preview of both schema and data changes
+- [x] Dry-run mode provides accurate preview without executing
+- [x] Output clearly distinguishes between DDL and DML operations
+- [x] Estimated execution metrics are reasonably accurate
 
 #### Step 4.2: Enhance Apply Command
 **Objective**: Update apply workflow to handle data migrations
 
 **Tasks:**
-- [ ] Modify `pkg/cli/schemaherokubectlcli/apply.go` to support data migration execution
-- [ ] Add flags for selective execution (schema-only, data-only)
-- [ ] Implement progress reporting for long-running data migrations
-- [ ] Add confirmation prompts for potentially destructive operations
-- [ ] Update status reporting to show data migration progress
+- [x] Modify `pkg/cli/schemaherokubectlcli/apply.go` to support data migration execution
+- [x] Add flags for selective execution (schema-only, data-only)
+- [x] Implement progress reporting for long-running data migrations
+- [x] Add confirmation prompts for potentially destructive operations
+- [x] Update status reporting to show data migration progress
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test apply command with data migration options
-- [ ] **Unit Tests**: Verify selective execution modes
-- [ ] **Unit Tests**: Test confirmation prompt logic
-- [ ] **Integration Tests**: Test apply command with real migrations
-- [ ] **End-to-End Tests**: Test complete apply workflow
+- [x] **Unit Tests**: Test apply command with data migration options
+- [x] **Unit Tests**: Verify selective execution modes
+- [x] **Unit Tests**: Test confirmation prompt logic
+- [x] **Integration Tests**: Test apply command with real migrations
+- [x] **End-to-End Tests**: Test complete apply workflow
 
 **Acceptance Criteria:**
-- [ ] Apply command can execute both schema and data migrations
-- [ ] Selective execution modes work correctly
-- [ ] Progress reporting provides useful feedback
-- [ ] Destructive operations require explicit confirmation
+- [x] Apply command can execute both schema and data migrations
+- [x] Selective execution modes work correctly
+- [x] Progress reporting provides useful feedback
+- [x] Destructive operations require explicit confirmation
 
 #### Step 4.3: Enhance Status and Describe Commands
 **Objective**: Provide visibility into data migration status
 
 **Tasks:**
-- [ ] Update `pkg/cli/schemaherokubectlcli/describe.go` to show data migration details
-- [ ] Enhance `pkg/cli/schemaherokubectlcli/get.go` to include data migration status
-- [ ] Add data migration progress reporting
-- [ ] Implement detailed error reporting for failed data migrations
+- [x] Update `pkg/cli/schemaherokubectlcli/describe.go` to show data migration details
+- [x] Enhance `pkg/cli/schemaherokubectlcli/get.go` to include data migration status
+- [x] Add data migration progress reporting
+- [x] Implement detailed error reporting for failed data migrations
 
 **Testing Checklist:**
-- [ ] **Unit Tests**: Test describe command output formatting
-- [ ] **Unit Tests**: Verify get command includes data migration status
-- [ ] **Integration Tests**: Test status commands with real migrations
+- [x] **Unit Tests**: Test describe command output formatting
+- [x] **Unit Tests**: Verify get command includes data migration status
+- [x] **Integration Tests**: Test status commands with real migrations
 
 **Acceptance Criteria:**
-- [ ] Status commands provide clear visibility into data migration state
-- [ ] Error messages are actionable and helpful
-- [ ] Progress reporting shows meaningful metrics
+- [x] Status commands provide clear visibility into data migration state
+- [x] Error messages are actionable and helpful
+- [x] Progress reporting shows meaningful metrics
 
 ### Phase 5: Database-Specific Implementations (Weeks 8-9)
 

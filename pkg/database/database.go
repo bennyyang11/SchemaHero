@@ -380,6 +380,53 @@ func (d *Database) PlanSyncTableSpec(spec *schemasv1alpha4.TableSpec) ([]string,
 	return nil, errors.Errorf("unknown database driver: %q", d.Driver)
 }
 
+// PlanDataMigrations generates DML statements for data migrations
+func (d *Database) PlanDataMigrations(spec *schemasv1alpha4.TableSpec) ([]string, error) {
+	if spec.DataMigrations == nil || len(spec.DataMigrations) == 0 {
+		return []string{}, nil
+	}
+
+	if d.Driver == "postgres" {
+		return postgres.PlanPostgresDataMigrations(d.URI, spec.Name, spec.DataMigrations)
+	} else if d.Driver == "mysql" {
+		return mysql.PlanMysqlDataMigrations(d.URI, spec.Name, spec.DataMigrations)
+	} else if d.Driver == "cockroachdb" {
+		// CockroachDB uses PostgreSQL syntax
+		return postgres.PlanPostgresDataMigrations(d.URI, spec.Name, spec.DataMigrations)
+	} else if d.Driver == "sqlite" {
+		// TODO: Implement SQLite data migrations
+		return []string{}, errors.New("SQLite data migrations not yet implemented")
+	} else if d.Driver == "rqlite" {
+		// TODO: Implement RQLite data migrations  
+		return []string{}, errors.New("RQLite data migrations not yet implemented")
+	} else if d.Driver == "timescaledb" {
+		// TimescaleDB uses PostgreSQL syntax
+		return postgres.PlanPostgresDataMigrations(d.URI, spec.Name, spec.DataMigrations)
+	} else if d.Driver == "cassandra" {
+		// TODO: Implement Cassandra data migrations (limited support)
+		return []string{}, errors.New("Cassandra data migrations not yet implemented")
+	}
+
+	return nil, errors.Errorf("unknown database driver: %q", d.Driver)
+}
+
+// PlanCompleteTableSpec generates both DDL and DML statements for a complete table specification
+func (d *Database) PlanCompleteTableSpec(spec *schemasv1alpha4.TableSpec) (ddlStatements []string, dmlStatements []string, err error) {
+	// First, plan schema changes (DDL)
+	ddlStatements, err = d.PlanSyncTableSpec(spec)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to plan schema changes")
+	}
+
+	// Then, plan data migrations (DML)
+	dmlStatements, err = d.PlanDataMigrations(spec)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to plan data migrations")
+	}
+
+	return ddlStatements, dmlStatements, nil
+}
+
 func (d *Database) PlanSyncSeedData(spec *schemasv1alpha4.TableSpec) ([]string, error) {
 	if spec.SeedData == nil {
 		return []string{}, nil

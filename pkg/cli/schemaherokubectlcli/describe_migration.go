@@ -88,6 +88,11 @@ func DescribeMigrationCmd() *cobra.Command {
 					time.Unix(foundMigration.Status.PlannedAt, 0).Format(time.RFC3339),
 					foundMigration.Spec.GeneratedDDL)
 
+				// Display data migration information if present
+				if foundMigration.Spec.GeneratedDML != "" {
+					fmt.Printf("\nGenerated DML Statement: \n  %s\n", foundMigration.Spec.GeneratedDML)
+				}
+
 				// Display status information
 				fmt.Printf("\nStatus: %s\n", foundMigration.Status.Phase)
 				if foundMigration.Status.ApprovedAt > 0 {
@@ -98,6 +103,58 @@ func DescribeMigrationCmd() *cobra.Command {
 				}
 				if foundMigration.Status.RejectedAt > 0 {
 					fmt.Printf("Rejected at: %s\n", time.Unix(foundMigration.Status.RejectedAt, 0).Format(time.RFC3339))
+				}
+
+				// Enhanced data migration status reporting
+				if foundMigration.Status.SchemaMigrationStatus != "" || foundMigration.Status.DataMigrationStatus != "" {
+					fmt.Printf("\n--- Migration Phase Status ---\n")
+					
+					if foundMigration.Spec.GeneratedDDL != "" {
+						fmt.Printf("Schema Migration Status: %s\n", foundMigration.Status.SchemaMigrationStatus)
+					}
+					
+					if foundMigration.Spec.GeneratedDML != "" {
+						fmt.Printf("Data Migration Status: %s\n", foundMigration.Status.DataMigrationStatus)
+						
+						if foundMigration.Status.EstimatedDataRows > 0 {
+							fmt.Printf("Estimated Rows Affected: %d\n", foundMigration.Status.EstimatedDataRows)
+						}
+						
+						if foundMigration.Status.EstimatedDuration != "" {
+							fmt.Printf("Estimated Duration: %s\n", foundMigration.Status.EstimatedDuration)
+						}
+					}
+				}
+
+				// Display error information if any phase failed
+				if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationFailed ||
+					foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationFailed {
+					fmt.Printf("\n--- Error Information ---\n")
+					fmt.Printf("⚠️  One or more migration phases failed. Check logs for details.\n")
+					
+					if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationFailed {
+						fmt.Printf("❌ Schema migration failed\n")
+					}
+					if foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationFailed {
+						fmt.Printf("❌ Data migration failed\n")
+					}
+				}
+
+				// Display progress information for running migrations
+				if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationRunning ||
+					foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationRunning {
+					fmt.Printf("\n--- Progress Information ---\n")
+					fmt.Printf("🚀 Migration is currently running...\n")
+					
+					if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationRunning {
+						fmt.Printf("📊 Schema changes are being applied\n")
+					}
+					if foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationRunning {
+						fmt.Printf("📊 Data migrations are being executed\n")
+						if foundMigration.Status.EstimatedDataRows > 0 {
+							fmt.Printf("📈 Processing up to %d rows\n", foundMigration.Status.EstimatedDataRows)
+						}
+					}
 				}
 
 				// Only show approval/action commands for migrations that haven't been approved or applied

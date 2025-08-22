@@ -231,7 +231,13 @@ func (r *ReconcileTable) plan(ctx context.Context, databaseInstance *databasesv1
 		seedStatements = append(seedStatements, stmts...)
 	}
 
-	if len(schemaStatements) == 0 && len(seedStatements) == 0 {
+	// plan the data migrations
+	dataStatements, err := db.PlanDataMigrations(&tableInstance.Spec)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "failed to plan data migrations for table %s", tableInstance.Name)
+	}
+
+	if len(schemaStatements) == 0 && len(seedStatements) == 0 && len(dataStatements) == 0 {
 		logger.Debug("no statements generated for migration",
 			zap.String("databaseName", databaseInstance.Name),
 			zap.String("tableName", tableInstance.Name))
@@ -245,8 +251,12 @@ func (r *ReconcileTable) plan(ctx context.Context, databaseInstance *databasesv1
 	}
 	tableSHA = tableSHA[:7]
 
-	allGeneratedStatements := append(schemaStatements, seedStatements...)
-	generatedDDL := strings.Join(allGeneratedStatements, ";\n")
+	// Schema-then-data execution ordering: Combine schema and seed for DDL
+	allSchemaStatements := append(schemaStatements, seedStatements...)
+	generatedDDL := strings.Join(allSchemaStatements, ";\n")
+	
+	// Data migrations are separate (DML)
+	generatedDML := strings.Join(dataStatements, ";\n")
 
 	migration := schemasv1alpha4.Migration{
 		TypeMeta: metav1.TypeMeta{
@@ -259,13 +269,16 @@ func (r *ReconcileTable) plan(ctx context.Context, databaseInstance *databasesv1
 		},
 		Spec: schemasv1alpha4.MigrationSpec{
 			GeneratedDDL:   generatedDDL,
+			GeneratedDML:   generatedDML,
 			DatabaseName:   tableInstance.Spec.Database,
 			TableName:      tableInstance.Name,
 			TableNamespace: tableInstance.Namespace,
 		},
 		Status: schemasv1alpha4.MigrationStatus{
-			PlannedAt: time.Now().Unix(),
-			Phase:     schemasv1alpha4.Planned,
+			PlannedAt:             time.Now().Unix(),
+			Phase:                 schemasv1alpha4.Planned,
+			SchemaMigrationStatus: schemasv1alpha4.DataMigrationPending,
+			DataMigrationStatus:   getInitialDataMigrationStatus(dataStatements),
 		},
 	}
 
@@ -301,4 +314,27 @@ func (r *ReconcileTable) plan(ctx context.Context, databaseInstance *databasesv1
 	}
 
 	return reconcile.Result{}, nil
+}
+
+// getInitialDataMigrationStatus determines the initial status for data migrations
+func getInitialDataMigrationStatus(dataStatements []string) schemasv1alpha4.DataMigrationStatus {
+	if len(dataStatements) == 0 {
+		return "" // No data migrations
+	}
+	
+	// Check if data statements are just comments (skipped migrations)
+	hasActualStatements := false
+	for _, stmt := range dataStatements {
+		trimmed := strings.TrimSpace(stmt)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "--") {
+			hasActualStatements = true
+			break
+		}
+	}
+	
+	if !hasActualStatements {
+		return schemasv1alpha4.DataMigrationSkipped
+	}
+	
+	return schemasv1alpha4.DataMigrationPending
 }
