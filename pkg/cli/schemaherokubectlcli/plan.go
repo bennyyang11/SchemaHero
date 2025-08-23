@@ -5,16 +5,18 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
+
 	schemasv1alpha4 "github.com/schemahero/schemahero/pkg/apis/schemas/v1alpha4"
 	"github.com/schemahero/schemahero/pkg/database"
 	"github.com/schemahero/schemahero/pkg/database/types"
 	"github.com/schemahero/schemahero/pkg/files"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 // PlanResult holds the planning results for better formatting
@@ -37,63 +39,15 @@ func PlanCmd() *cobra.Command {
 			viper.BindPFlags(cmd.Flags())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v := viper.GetViper()
+			v := viper.New()
+			v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+			v.AutomaticEnv()
 
-			// to support automaticenv, we can't use cobra required flags
-			driver := v.GetString("driver")
-			specFile := v.GetString("spec-file")
-			uri := v.GetString("uri")
-			host := v.GetStringSlice("host")
-
-			if driver == "" || specFile == "" || uri == "" || len(host) == 0 {
-				missing := []string{}
-				if driver == "" {
-					missing = append(missing, "driver")
-				}
-				if specFile == "" {
-					missing = append(missing, "spec-file")
-				}
-
-				// one of uri or host/port must be specified
-				if uri == "" && len(host) == 0 {
-					missing = append(missing, "uri or host(s)")
-				}
-
-				if len(missing) > 0 {
-					return fmt.Errorf("missing required params: %v", missing)
-				}
-			}
-
-			fi, err := os.Stat(v.GetString("spec-file"))
-			if err != nil {
-				return err
-			}
-
-			if _, err = os.Stat(v.GetString("out")); err == nil {
-				if !v.GetBool("overwrite") {
-					return errors.Errorf("file %s already exists", v.GetString("out"))
-				}
-
-				err = os.RemoveAll(v.GetString("out"))
-				if err != nil {
-					return errors.Wrap(err, "failed remove existing file")
-				}
-			}
-
-			var f *os.File
-			if v.GetString("out") != "" {
-				f, err = os.OpenFile(v.GetString("out"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					f.Close()
-				}()
+			for _, key := range []string{"driver", "uri", "username", "password", "host", "keyspace", "spec-file", "spec-type", "out", "overwrite", "seed-data", "dry-run", "data-migrations-only", "schema-only", "show-metrics"} {
+				v.BindPFlag(key, cmd.Flags().Lookup(key))
 			}
 
 			db := database.Database{
-				InputDir:       v.GetString("input-dir"),
-				OutputDir:      v.GetString("output-dir"),
 				Driver:         v.GetString("driver"),
 				URI:            v.GetString("uri"),
 				Hosts:          v.GetStringSlice("host"),
@@ -103,15 +57,35 @@ func PlanCmd() *cobra.Command {
 				DeploySeedData: v.GetBool("seed-data"),
 			}
 
-			// Enhanced planning options
+			var f *os.File
+			if v.GetString("out") != "" {
+				f, err := os.OpenFile(v.GetString("out"), os.O_WRONLY|os.O_CREATE, 0644)
+				if err != nil {
+					return errors.Wrap(err, "failed to create output file")
+				}
+				defer f.Close()
+
+				if !v.GetBool("overwrite") {
+					if _, err := os.Stat(v.GetString("out")); err == nil {
+						return errors.New("output file already exists, use --overwrite to overwrite")
+					}
+				}
+			}
+
 			dryRun := v.GetBool("dry-run")
 			dataOnly := v.GetBool("data-migrations-only")
 			schemaOnly := v.GetBool("schema-only")
 			showMetrics := v.GetBool("show-metrics")
 			verboseOutput := v.GetBool("verbose")
 
-			specsFromFiles := []types.Spec{}
+			fi, err := os.Stat(v.GetString("spec-file"))
+			if err != nil {
+				return errors.Wrap(err, "failed to stat spec file")
+			}
+
 			if fi.Mode().IsDir() {
+				// Directory of specs
+				specsFromFiles := []types.Spec{}
 				err := filepath.Walk(v.GetString("spec-file"), func(path string, info os.FileInfo, err error) error {
 					isHidden, err := files.IsHidden(path)
 					if err != nil {
@@ -146,13 +120,29 @@ func PlanCmd() *cobra.Command {
 
 				db.SortSpecs(specsFromFiles)
 
-				results := []PlanResult{}
+				var results []PlanResult
+
 				for _, spec := range specsFromFiles {
-					result, err := planSpecWithEnhancements(&db, spec, dryRun, dataOnly, schemaOnly, showMetrics)
-					if err != nil {
-						return fmt.Errorf("plan from file %q: %w", spec.SourceFilename, err)
+					// Only use enhanced planning if needed (has data migrations or enhanced flags are used)
+					if needsEnhancedPlanning(spec, dryRun, dataOnly, schemaOnly, showMetrics) {
+						result, err := planSpecWithEnhancements(&db, spec, dryRun, dataOnly, schemaOnly, showMetrics)
+						if err != nil {
+							return fmt.Errorf("plan from file %q: %w", spec.SourceFilename, err)
+						}
+						results = append(results, result)
+					} else {
+						// Use traditional planning for backward compatibility
+						statements, err := db.PlanSync(spec.Spec, v.GetString("spec-type"))
+						if err != nil {
+							return fmt.Errorf("plan from file %q: %w", spec.SourceFilename, err)
+						}
+						result := PlanResult{
+							SourceFile:    spec.SourceFilename,
+							DDLStatements: statements,
+							DMLStatements: []string{},
+						}
+						results = append(results, result)
 					}
-					results = append(results, result)
 				}
 
 				// Output results
@@ -169,13 +159,29 @@ func PlanCmd() *cobra.Command {
 					Spec:           specContents,
 				}
 
-				result, err := planSpecWithEnhancements(&db, spec, dryRun, dataOnly, schemaOnly, showMetrics)
-				if err != nil {
-					return fmt.Errorf("plan from file %q: %w", v.GetString("spec-file"), err)
-				}
+				// Only use enhanced planning if needed (has data migrations or enhanced flags are used)
+				if needsEnhancedPlanning(spec, dryRun, dataOnly, schemaOnly, showMetrics) {
+					result, err := planSpecWithEnhancements(&db, spec, dryRun, dataOnly, schemaOnly, showMetrics)
+					if err != nil {
+						return fmt.Errorf("plan from file %q: %w", v.GetString("spec-file"), err)
+					}
+					// Output single result
+					return outputPlanResults([]PlanResult{result}, f, verboseOutput, showMetrics, dryRun)
+				} else {
+					// Use traditional planning for backward compatibility
+					statements, err := db.PlanSync(specContents, v.GetString("spec-type"))
+					if err != nil {
+						return fmt.Errorf("plan from file %q: %w", v.GetString("spec-file"), err)
+					}
 
-				// Output single result
-				return outputPlanResults([]PlanResult{result}, f, verboseOutput, showMetrics, dryRun)
+					// Write statements to output
+					for _, statement := range statements {
+						if err := writeOutput(f, fmt.Sprintf("%s;\n", statement)); err != nil {
+							return err
+						}
+					}
+					return nil
+				}
 			}
 		},
 	}
@@ -204,6 +210,23 @@ func PlanCmd() *cobra.Command {
 	cmd.Flags().Bool("verbose", false, "when set, will show detailed migration information")
 
 	return cmd
+}
+
+// needsEnhancedPlanning determines whether to use enhanced planning or fall back to traditional planning
+func needsEnhancedPlanning(spec types.Spec, dryRun, dataOnly, schemaOnly, showMetrics bool) bool {
+	// Use enhanced planning if any enhanced flags are set
+	if dryRun || dataOnly || schemaOnly || showMetrics {
+		return true
+	}
+
+	// Use enhanced planning if the spec contains data migrations
+	hasDataMigrations, err := specHasDataMigrations(spec.Spec)
+	if err != nil {
+		// If we can't parse the spec, fall back to traditional planning
+		return false
+	}
+
+	return hasDataMigrations
 }
 
 // planSpecWithEnhancements performs enhanced planning for both DDL and DML

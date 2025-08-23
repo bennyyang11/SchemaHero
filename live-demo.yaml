@@ -1,0 +1,38 @@
+apiVersion: schemas.schemahero.io/v1alpha4
+kind: Table
+metadata:
+  name: users-live-demo
+spec:
+  database: schemahero
+  name: users
+  schema:
+    postgres:
+      primaryKey: [id]
+      columns:
+        - name: id
+          type: integer
+          constraints:
+            primaryKey: true
+        - name: email
+          type: varchar(255)
+          constraints:
+            notNull: true
+        - name: first_name
+          type: varchar(100)
+        - name: last_name
+          type: varchar(100)
+        - name: created_at
+          type: timestamp
+        # NEW COLUMNS
+        - name: status
+          type: varchar(20)
+        - name: full_name
+          type: varchar(255)
+  # DATA MIGRATIONS
+  dataMigrations:
+    - name: "add-status"
+      description: "Set active status"
+      sql: "UPDATE users SET status = 'active' WHERE status IS NULL"
+    - name: "create-full-names" 
+      description: "Combine names"
+      sql: "UPDATE users SET full_name = first_name || ' ' || last_name WHERE full_name IS NULL"
