@@ -252,7 +252,18 @@ func planSpecWithEnhancements(db *database.Database, spec types.Spec, dryRun, da
 		// Try Kubernetes object format first
 		parsedK8sObject := schemasv1alpha4.Table{}
 		if err := yaml.Unmarshal(spec.Spec, &parsedK8sObject); err == nil {
-			tableSpec = &parsedK8sObject.Spec
+			// Check if we actually got meaningful K8s object data (has database and name populated)
+			if parsedK8sObject.Spec.Database != "" && parsedK8sObject.Spec.Name != "" {
+				tableSpec = &parsedK8sObject.Spec
+			} else {
+				// If database and name are empty, this is likely a plain spec format
+				// Try plain spec format
+				plainSpec := schemasv1alpha4.TableSpec{}
+				if err := yaml.Unmarshal(spec.Spec, &plainSpec); err != nil {
+					return result, errors.Wrap(err, "failed to unmarshal table spec")
+				}
+				tableSpec = &plainSpec
+			}
 		} else {
 			// Try plain spec format
 			plainSpec := schemasv1alpha4.TableSpec{}
