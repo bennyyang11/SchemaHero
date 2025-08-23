@@ -24,14 +24,14 @@ import (
 type DataMigrationCondition struct {
 	// SQL query that should return a single row with a single numeric column
 	// The migration will execute if the result matches the operator and value
-	Query    string `json:"query" yaml:"query"`
-	
+	Query string `json:"query" yaml:"query"`
+
 	// Operator for comparison: >, <, >=, <=, =, !=, EXISTS, NOT EXISTS
 	// +kubebuilder:validation:Enum={">","<",">=","<=","=","!=","EXISTS","NOT EXISTS"}
 	Operator string `json:"operator" yaml:"operator"`
-	
+
 	// Value to compare against (ignored for EXISTS/NOT EXISTS)
-	Value    int64  `json:"value,omitempty" yaml:"value,omitempty"`
+	Value int64 `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
 // DataMigration defines a data transformation to be applied to a table
@@ -89,16 +89,16 @@ type DataMigrationType string
 const (
 	// DataMigrationTypeBackfill fills new columns with data
 	DataMigrationTypeBackfill DataMigrationType = "BACKFILL"
-	
+
 	// DataMigrationTypeTransform modifies existing data
 	DataMigrationTypeTransform DataMigrationType = "TRANSFORM"
-	
+
 	// DataMigrationTypeCleanup removes obsolete data
 	DataMigrationTypeCleanup DataMigrationType = "CLEANUP"
-	
+
 	// DataMigrationTypeCopy copies data between tables
 	DataMigrationTypeCopy DataMigrationType = "COPY"
-	
+
 	// DataMigrationTypeCustom for custom migration logic
 	DataMigrationTypeCustom DataMigrationType = "CUSTOM"
 )
@@ -107,11 +107,11 @@ const (
 type DataMigrationStatus string
 
 const (
-	DataMigrationPending   DataMigrationStatus = "PENDING"
-	DataMigrationRunning   DataMigrationStatus = "RUNNING"
-	DataMigrationCompleted DataMigrationStatus = "COMPLETED"
-	DataMigrationFailed    DataMigrationStatus = "FAILED"
-	DataMigrationSkipped   DataMigrationStatus = "SKIPPED"
+	DataMigrationPending    DataMigrationStatus = "PENDING"
+	DataMigrationRunning    DataMigrationStatus = "RUNNING"
+	DataMigrationCompleted  DataMigrationStatus = "COMPLETED"
+	DataMigrationFailed     DataMigrationStatus = "FAILED"
+	DataMigrationSkipped    DataMigrationStatus = "SKIPPED"
 	DataMigrationRolledBack DataMigrationStatus = "ROLLED_BACK"
 )
 
@@ -119,16 +119,16 @@ const (
 type BatchConfiguration struct {
 	// Size of each batch
 	Size int32 `json:"size" yaml:"size"`
-	
+
 	// Delay between batches in milliseconds
 	DelayMs int32 `json:"delayMs,omitempty" yaml:"delayMs,omitempty"`
-	
+
 	// Column to use for ordering batches (usually primary key)
 	OrderBy string `json:"orderBy,omitempty" yaml:"orderBy,omitempty"`
-	
+
 	// Whether to process batches in parallel
 	Parallel bool `json:"parallel,omitempty" yaml:"parallel,omitempty"`
-	
+
 	// Maximum parallel batches
 	MaxParallel int32 `json:"maxParallel,omitempty" yaml:"maxParallel,omitempty"`
 }
@@ -137,10 +137,10 @@ type BatchConfiguration struct {
 type DependencyConfiguration struct {
 	// Hard dependencies that must complete successfully
 	Required []string `json:"required,omitempty" yaml:"required,omitempty"`
-	
+
 	// Soft dependencies that should complete but won't block
 	Optional []string `json:"optional,omitempty" yaml:"optional,omitempty"`
-	
+
 	// Dependencies that must fail for this to run
 	FailedOnly []string `json:"failedOnly,omitempty" yaml:"failedOnly,omitempty"`
-} 
+}

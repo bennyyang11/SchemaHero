@@ -31,12 +31,12 @@ type DependencyResolver struct {
 func NewDependencyResolver(migrations []DataMigration) *DependencyResolver {
 	migMap := make(map[string]*DataMigration)
 	statusMap := make(map[string]DataMigrationStatus)
-	
+
 	for i := range migrations {
 		migMap[migrations[i].Name] = &migrations[i]
 		statusMap[migrations[i].Name] = DataMigrationPending
 	}
-	
+
 	return &DependencyResolver{
 		migrations: migMap,
 		statuses:   statusMap,
@@ -49,12 +49,12 @@ func (r *DependencyResolver) ResolveExecutionOrder() ([]*DataMigration, error) {
 	if err := r.checkCircularDependencies(); err != nil {
 		return nil, err
 	}
-	
+
 	// Build execution order using topological sort
 	var ordered []*DataMigration
 	visited := make(map[string]bool)
 	visiting := make(map[string]bool)
-	
+
 	// First, sort by priority (descending) and name for deterministic ordering
 	var names []string
 	for name := range r.migrations {
@@ -68,7 +68,7 @@ func (r *DependencyResolver) ResolveExecutionOrder() ([]*DataMigration, error) {
 		}
 		return mi.Name < mj.Name // Alphabetical for same priority
 	})
-	
+
 	// Perform topological sort
 	var visit func(name string) error
 	visit = func(name string) error {
@@ -78,10 +78,10 @@ func (r *DependencyResolver) ResolveExecutionOrder() ([]*DataMigration, error) {
 		if visiting[name] {
 			return fmt.Errorf("circular dependency detected involving migration: %s", name)
 		}
-		
+
 		visiting[name] = true
 		migration := r.migrations[name]
-		
+
 		// Visit dependencies first
 		for _, dep := range migration.DependsOn {
 			if _, exists := r.migrations[dep]; !exists {
@@ -91,21 +91,21 @@ func (r *DependencyResolver) ResolveExecutionOrder() ([]*DataMigration, error) {
 				return err
 			}
 		}
-		
+
 		visiting[name] = false
 		visited[name] = true
 		ordered = append(ordered, migration)
-		
+
 		return nil
 	}
-	
+
 	// Visit all migrations
 	for _, name := range names {
 		if err := visit(name); err != nil {
 			return nil, err
 		}
 	}
-	
+
 	return ordered, nil
 }
 
@@ -113,18 +113,18 @@ func (r *DependencyResolver) ResolveExecutionOrder() ([]*DataMigration, error) {
 func (r *DependencyResolver) checkCircularDependencies() error {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
-	
+
 	var hasCycle func(name string) (bool, []string)
 	hasCycle = func(name string) (bool, []string) {
 		visited[name] = true
 		recStack[name] = true
-		
+
 		migration := r.migrations[name]
 		for _, dep := range migration.DependsOn {
 			if _, exists := r.migrations[dep]; !exists {
 				continue // Will be caught later
 			}
-			
+
 			if !visited[dep] {
 				if cycle, path := hasCycle(dep); cycle {
 					return true, append([]string{name}, path...)
@@ -133,11 +133,11 @@ func (r *DependencyResolver) checkCircularDependencies() error {
 				return true, []string{name, dep}
 			}
 		}
-		
+
 		recStack[name] = false
 		return false, nil
 	}
-	
+
 	for name := range r.migrations {
 		if !visited[name] {
 			if cycle, path := hasCycle(name); cycle {
@@ -145,24 +145,24 @@ func (r *DependencyResolver) checkCircularDependencies() error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // GetExecutableMigrations returns migrations that can be executed now
 func (r *DependencyResolver) GetExecutableMigrations() []*DataMigration {
 	var executable []*DataMigration
-	
+
 	for name, migration := range r.migrations {
 		if r.statuses[name] != DataMigrationPending {
 			continue
 		}
-		
+
 		if r.canExecute(migration) {
 			executable = append(executable, migration)
 		}
 	}
-	
+
 	// Sort by priority and name for deterministic ordering
 	sort.Slice(executable, func(i, j int) bool {
 		if executable[i].Priority != executable[j].Priority {
@@ -170,7 +170,7 @@ func (r *DependencyResolver) GetExecutableMigrations() []*DataMigration {
 		}
 		return executable[i].Name < executable[j].Name
 	})
-	
+
 	return executable
 }
 
@@ -186,7 +186,7 @@ func (r *DependencyResolver) canExecute(migration *DataMigration) bool {
 			return false // Dependency not completed
 		}
 	}
-	
+
 	return true
 }
 
@@ -202,11 +202,11 @@ func (r *DependencyResolver) UpdateStatus(name string, status DataMigrationStatu
 // GetDependencyGraph returns a visual representation of dependencies
 func (r *DependencyResolver) GetDependencyGraph() map[string][]string {
 	graph := make(map[string][]string)
-	
+
 	for name, migration := range r.migrations {
 		graph[name] = migration.DependsOn
 	}
-	
+
 	return graph
 }
 
@@ -219,6 +219,6 @@ func (r *DependencyResolver) ValidateDependencies() error {
 			}
 		}
 	}
-	
+
 	return r.checkCircularDependencies()
-} 
+}

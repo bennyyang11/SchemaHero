@@ -61,33 +61,33 @@ const (
 	ParameterTypeDate      ParameterType = "date"
 	ParameterTypeTimestamp ParameterType = "timestamp"
 	ParameterTypeEnum      ParameterType = "enum"
-	ParameterTypeTable     ParameterType = "table"     // Table name
-	ParameterTypeColumn    ParameterType = "column"    // Column name
+	ParameterTypeTable     ParameterType = "table"  // Table name
+	ParameterTypeColumn    ParameterType = "column" // Column name
 )
 
 // BuiltinFunctions provides common SQL functions for templates
 var BuiltinFunctions = template.FuncMap{
 	// String functions
-	"quote":       QuoteString,
-	"escape":      EscapeSQL,
-	"upper":       strings.ToUpper,
-	"lower":       strings.ToLower,
-	"trim":        strings.TrimSpace,
-	
+	"quote":  QuoteString,
+	"escape": EscapeSQL,
+	"upper":  strings.ToUpper,
+	"lower":  strings.ToLower,
+	"trim":   strings.TrimSpace,
+
 	// Date/time functions
-	"now":         func() string { return time.Now().UTC().Format(time.RFC3339) },
-	"date":        func() string { return time.Now().UTC().Format("2006-01-02") },
-	"dateOffset":  DateOffset,
-	
+	"now":        func() string { return time.Now().UTC().Format(time.RFC3339) },
+	"date":       func() string { return time.Now().UTC().Format("2006-01-02") },
+	"dateOffset": DateOffset,
+
 	// SQL helpers
-	"identifier":  QuoteIdentifier,
-	"in":          BuildINClause,
-	"notIn":       BuildNOTINClause,
-	"between":     BuildBETWEENClause,
-	
+	"identifier": QuoteIdentifier,
+	"in":         BuildINClause,
+	"notIn":      BuildNOTINClause,
+	"between":    BuildBETWEENClause,
+
 	// Conditional helpers
-	"when":        WhenClause,
-	"unless":      UnlessClause,
+	"when":   WhenClause,
+	"unless": UnlessClause,
 }
 
 // QuoteString safely quotes a string for SQL
@@ -118,7 +118,7 @@ func BuildINClause(values ...interface{}) string {
 	if len(values) == 0 {
 		return "(NULL)"
 	}
-	
+
 	// Handle case where first argument is a slice
 	if len(values) == 1 {
 		switch v := values[0].(type) {
@@ -138,7 +138,7 @@ func BuildINClause(values ...interface{}) string {
 			values = newValues
 		}
 	}
-	
+
 	parts := make([]string, len(values))
 	for i, v := range values {
 		switch val := v.(type) {
@@ -150,7 +150,7 @@ func BuildINClause(values ...interface{}) string {
 			parts[i] = fmt.Sprintf("%d", val)
 		}
 	}
-	
+
 	return fmt.Sprintf("(%s)", strings.Join(parts, ", "))
 }
 
@@ -198,4 +198,4 @@ func RenderTemplate(tmplStr string, values map[string]interface{}) (string, erro
 	}
 
 	return buf.String(), nil
-} 
+}

@@ -30,7 +30,7 @@ import (
 func TestPlanCommand(t *testing.T) {
 	t.Run("enhanced plan command creation", func(t *testing.T) {
 		cmd := PlanCmd()
-		
+
 		assert.Equal(t, "plan", cmd.Use)
 		assert.Contains(t, cmd.Short, "plan a spec application against a database")
 		assert.Contains(t, cmd.Long, "Generate and preview DDL and DML statements")
@@ -176,7 +176,7 @@ dataMigrations:
 	t.Run("invalid spec for metrics", func(t *testing.T) {
 		specYAML := `invalid yaml`
 		db := &database.Database{Driver: "postgres"}
-		
+
 		_, _, err := estimateMigrationMetrics(db, []byte(specYAML), []string{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to unmarshal spec for metrics")
@@ -208,7 +208,7 @@ spec:
 		result, err := planSpecWithEnhancements(db, spec, false, false, false, true)
 		// This will error due to mock database, but test the parsing logic
 		assert.Error(t, err) // Expected due to mock database
-		
+
 		assert.Equal(t, "users.yaml", result.SourceFile)
 		assert.True(t, result.HasDataMigrations)
 	})
@@ -261,7 +261,7 @@ func TestOutputPlanResults(t *testing.T) {
 		// This would write to stdout in real usage, but we can test the structure
 		err := outputPlanResults(results, nil, false, false, false)
 		require.NoError(t, err)
-		
+
 		// The function doesn't return output for testing, but we've verified no errors
 		assert.NoError(t, err)
 	})
@@ -343,7 +343,7 @@ func TestPlanResultStructure(t *testing.T) {
 
 	t.Run("empty plan result", func(t *testing.T) {
 		result := PlanResult{}
-		
+
 		assert.Empty(t, result.SourceFile)
 		assert.Empty(t, result.DDLStatements)
 		assert.Empty(t, result.DMLStatements)
@@ -351,4 +351,4 @@ func TestPlanResultStructure(t *testing.T) {
 		assert.Equal(t, time.Duration(0), result.EstimatedTime)
 		assert.False(t, result.HasDataMigrations)
 	})
-} 
+}

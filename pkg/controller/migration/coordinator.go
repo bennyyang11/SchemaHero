@@ -33,11 +33,11 @@ import (
 
 // MigrationCoordinator orchestrates the execution of schema and data migrations
 type MigrationCoordinator struct {
-	client            client.Client
-	executionLocks    sync.Map // map[string]*ExecutionLock
-	statusReporter    StatusReporter
-	rollbackManager   *RollbackManager
-	progressTracker   *ProgressTracker
+	client          client.Client
+	executionLocks  sync.Map // map[string]*ExecutionLock
+	statusReporter  StatusReporter
+	rollbackManager *RollbackManager
+	progressTracker *ProgressTracker
 }
 
 // ExecutionLock prevents concurrent migration execution on the same table
@@ -56,10 +56,10 @@ type StatusReporter struct {
 
 // RollbackManager handles rollback coordination for failed migrations
 type RollbackManager struct {
-	rollbackHistory   map[string][]RollbackAttempt
-	maxRollbackDepth  int
-	rollbackTimeout   time.Duration
-	mutex             sync.RWMutex
+	rollbackHistory  map[string][]RollbackAttempt
+	maxRollbackDepth int
+	rollbackTimeout  time.Duration
+	mutex            sync.RWMutex
 }
 
 // RollbackAttempt tracks a rollback attempt
@@ -79,13 +79,13 @@ type ProgressTracker struct {
 
 // MigrationProgress tracks the progress of a specific migration
 type MigrationProgress struct {
-	MigrationName   string
-	TableName       string
-	StartTime       time.Time
-	CurrentPhase    ExecutionPhase
-	SchemaProgress  PhaseProgress
-	DataProgress    PhaseProgress
-	OverallStatus   schemasv1alpha4.Phase
+	MigrationName  string
+	TableName      string
+	StartTime      time.Time
+	CurrentPhase   ExecutionPhase
+	SchemaProgress PhaseProgress
+	DataProgress   PhaseProgress
+	OverallStatus  schemasv1alpha4.Phase
 }
 
 // ExecutionPhase represents the current execution phase
@@ -104,11 +104,11 @@ const (
 
 // PhaseProgress tracks progress of a specific phase
 type PhaseProgress struct {
-	Status        schemasv1alpha4.DataMigrationStatus
-	StartTime     time.Time
-	EndTime       time.Time
-	RowsAffected  int64
-	ErrorMessage  string
+	Status       schemasv1alpha4.DataMigrationStatus
+	StartTime    time.Time
+	EndTime      time.Time
+	RowsAffected int64
+	ErrorMessage string
 }
 
 // NewMigrationCoordinator creates a new migration execution coordinator
@@ -205,7 +205,7 @@ func (c *MigrationCoordinator) executePhases(ctx context.Context, migration *sch
 // acquireExecutionLock prevents concurrent execution on the same table
 func (c *MigrationCoordinator) acquireExecutionLock(migration *schemasv1alpha4.Migration) (*ExecutionLock, error) {
 	lockKey := migration.Spec.TableName
-	
+
 	newLock := &ExecutionLock{
 		TableName:     migration.Spec.TableName,
 		MigrationName: migration.Name,
@@ -411,7 +411,7 @@ func (rm *RollbackManager) AttemptRollback(ctx context.Context, migration *schem
 	// Rollback data phase if it was executed/failed
 	if migration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationFailed ||
 		migration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationCompleted {
-		
+
 		attempt := RollbackAttempt{
 			MigrationName: migrationName,
 			Phase:         "data",
@@ -475,7 +475,7 @@ func (rm *RollbackManager) rollbackDataPhase(ctx context.Context, migration *sch
 			// Execute rollback
 			controllerLogger := &ControllerLogger{}
 			executor := NewMigrationExecutor(db.Driver, db.URI, nil, controllerLogger)
-			
+
 			if err := executor.ExecuteSingleDataMigration(ctx, migration.Spec.TableName, &rollbackMigration); err != nil {
 				return errors.Wrapf(err, "failed to rollback data migration %s", dataMigration.Name)
 			}
@@ -562,4 +562,4 @@ func parseDataMigrationsFromDML(generatedDML string) ([]schemasv1alpha4.DataMigr
 	}
 
 	return []schemasv1alpha4.DataMigration{migration}, nil
-} 
+}

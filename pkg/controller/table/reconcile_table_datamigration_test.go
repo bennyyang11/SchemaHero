@@ -59,7 +59,7 @@ func TestGetInitialDataMigrationStatus(t *testing.T) {
 			"-- Migration: skipped-migration",
 			"-- Migration skipped-migration: SKIPPED (conditions not met)",
 			"",
-			"-- Migration: actual-migration", 
+			"-- Migration: actual-migration",
 			"UPDATE users SET processed = true",
 		}
 		status := getInitialDataMigrationStatus(statements)
@@ -85,15 +85,15 @@ func TestSchemaDataExecutionOrdering(t *testing.T) {
 			"ALTER TABLE users ADD COLUMN email VARCHAR(255)",
 			"ALTER TABLE users ADD COLUMN status VARCHAR(20)",
 		}
-		
+
 		seedStatements := []string{
 			"INSERT INTO users (email, status) VALUES ('admin@example.com', 'admin')",
 		}
-		
+
 		dataStatements := []string{
 			"-- Migration: set-default-status",
 			"UPDATE users SET status = 'active' WHERE status IS NULL",
-			"-- Migration: normalize-emails", 
+			"-- Migration: normalize-emails",
 			"UPDATE users SET email = LOWER(email)",
 		}
 
@@ -205,7 +205,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	t.Run("table without data migrations", func(t *testing.T) {
 		// Existing table without DataMigrations field should still work
 		tableSpec := &schemasv1alpha4.TableSpec{
-			Database: "testdb", 
+			Database: "testdb",
 			Name:     "users",
 			Schema: &schemasv1alpha4.TableSchema{
 				Postgres: &schemasv1alpha4.PostgresqlTableSchema{
@@ -219,7 +219,7 @@ func TestBackwardCompatibility(t *testing.T) {
 
 		// Should handle nil/empty data migrations gracefully
 		assert.Nil(t, tableSpec.DataMigrations)
-		
+
 		// Status calculation should work
 		status := getInitialDataMigrationStatus([]string{})
 		assert.Empty(t, status)
@@ -228,7 +228,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	t.Run("table with empty data migrations", func(t *testing.T) {
 		tableSpec := &schemasv1alpha4.TableSpec{
 			Database: "testdb",
-			Name:     "users", 
+			Name:     "users",
 			Schema: &schemasv1alpha4.TableSchema{
 				Postgres: &schemasv1alpha4.PostgresqlTableSchema{
 					Columns: []*schemasv1alpha4.PostgresqlTableColumn{
@@ -241,7 +241,7 @@ func TestBackwardCompatibility(t *testing.T) {
 
 		assert.NotNil(t, tableSpec.DataMigrations)
 		assert.Len(t, tableSpec.DataMigrations, 0)
-		
+
 		// Status calculation should work with empty slice
 		status := getInitialDataMigrationStatus([]string{})
 		assert.Empty(t, status)
@@ -360,15 +360,15 @@ func TestTableControllerDataMigrationIntegration(t *testing.T) {
 		// Verify migration has both DDL and DML
 		assert.NotEmpty(t, migration.Spec.GeneratedDDL, "Migration should have DDL")
 		assert.NotEmpty(t, migration.Spec.GeneratedDML, "Migration should have DML")
-		
+
 		// Verify DDL contains schema changes
 		assert.Contains(t, migration.Spec.GeneratedDDL, "ALTER TABLE")
 		assert.Contains(t, migration.Spec.GeneratedDDL, "ADD COLUMN")
-		
+
 		// Verify DML contains data changes
 		assert.Contains(t, migration.Spec.GeneratedDML, "UPDATE")
 		assert.Contains(t, migration.Spec.GeneratedDML, "Migration:")
-		
+
 		// Verify status tracking
 		assert.Equal(t, schemasv1alpha4.DataMigrationPending, migration.Status.SchemaMigrationStatus)
 		assert.Equal(t, schemasv1alpha4.DataMigrationPending, migration.Status.DataMigrationStatus)
@@ -417,12 +417,12 @@ func TestExecutionOrderingLogic(t *testing.T) {
 	t.Run("schema statements come before data statements", func(t *testing.T) {
 		// This tests the conceptual ordering - in practice, they're in separate fields
 		// but the execution engine should handle DDL before DML
-		
+
 		ddl := []string{
 			"ALTER TABLE users ADD COLUMN email VARCHAR(255)",
 			"CREATE INDEX idx_users_email ON users(email)",
 		}
-		
+
 		dml := []string{
 			"UPDATE users SET email = 'default@example.com' WHERE email IS NULL",
 		}
@@ -438,12 +438,12 @@ func TestExecutionOrderingLogic(t *testing.T) {
 		// The execution engine should process DDL first, then DML
 		assert.NotEmpty(t, migration.Spec.GeneratedDDL, "DDL should be present")
 		assert.NotEmpty(t, migration.Spec.GeneratedDML, "DML should be present")
-		
+
 		// Verify content separation
 		assert.Contains(t, migration.Spec.GeneratedDDL, "ALTER TABLE")
 		assert.Contains(t, migration.Spec.GeneratedDDL, "CREATE INDEX")
 		assert.NotContains(t, migration.Spec.GeneratedDDL, "UPDATE")
-		
+
 		assert.Contains(t, migration.Spec.GeneratedDML, "UPDATE")
 		assert.NotContains(t, migration.Spec.GeneratedDML, "ALTER TABLE")
 		assert.NotContains(t, migration.Spec.GeneratedDML, "CREATE INDEX")
@@ -452,7 +452,7 @@ func TestExecutionOrderingLogic(t *testing.T) {
 	t.Run("seed data is part of DDL phase", func(t *testing.T) {
 		// Seed data should be executed with schema changes (DDL phase)
 		// before data migrations (DML phase)
-		
+
 		schemaStatements := []string{"CREATE TABLE users (id SERIAL)"}
 		seedStatements := []string{"INSERT INTO users (id) VALUES (1)"}
 		dataStatements := []string{"UPDATE users SET created_at = NOW()"}
@@ -465,7 +465,7 @@ func TestExecutionOrderingLogic(t *testing.T) {
 		assert.Contains(t, generatedDDL, "CREATE TABLE")
 		assert.Contains(t, generatedDDL, "INSERT INTO users")
 		assert.Contains(t, generatedDML, "UPDATE users SET created_at")
-		
+
 		// Verify seed data is NOT in DML
 		assert.NotContains(t, generatedDML, "INSERT INTO users (id) VALUES")
 	})
@@ -474,10 +474,10 @@ func TestExecutionOrderingLogic(t *testing.T) {
 func TestDataMigrationStatusCalculation(t *testing.T) {
 	t.Run("status calculation scenarios", func(t *testing.T) {
 		testCases := []struct {
-			name               string
-			dataStatements     []string
-			expectedStatus     schemasv1alpha4.DataMigrationStatus
-			description        string
+			name           string
+			dataStatements []string
+			expectedStatus schemasv1alpha4.DataMigrationStatus
+			description    string
 		}{
 			{
 				name:           "no statements",
@@ -531,4 +531,4 @@ func TestDataMigrationStatusCalculation(t *testing.T) {
 			})
 		}
 	})
-} 
+}

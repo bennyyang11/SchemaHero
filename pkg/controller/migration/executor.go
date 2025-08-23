@@ -42,27 +42,27 @@ type ProgressCallback func(migrationName string, progress ProgressInfo)
 
 // ProgressInfo contains information about migration execution progress
 type ProgressInfo struct {
-	Stage           ExecutionStage
-	CurrentBatch    int32
-	TotalBatches    int32
-	RowsProcessed   int64
-	TotalRows       int64
-	ElapsedTime     time.Duration
+	Stage             ExecutionStage
+	CurrentBatch      int32
+	TotalBatches      int32
+	RowsProcessed     int64
+	TotalRows         int64
+	ElapsedTime       time.Duration
 	EstimatedTimeLeft time.Duration
-	Error           error
+	Error             error
 }
 
 // ExecutionStage represents the current stage of migration execution
 type ExecutionStage string
 
 const (
-	StageValidating    ExecutionStage = "VALIDATING"
-	StageExecuting     ExecutionStage = "EXECUTING"
-	StageBatching      ExecutionStage = "BATCHING"
-	StageCompleted     ExecutionStage = "COMPLETED"
-	StageFailed        ExecutionStage = "FAILED"
-	StageRollingBack   ExecutionStage = "ROLLING_BACK"
-	StageRolledBack    ExecutionStage = "ROLLED_BACK"
+	StageValidating  ExecutionStage = "VALIDATING"
+	StageExecuting   ExecutionStage = "EXECUTING"
+	StageBatching    ExecutionStage = "BATCHING"
+	StageCompleted   ExecutionStage = "COMPLETED"
+	StageFailed      ExecutionStage = "FAILED"
+	StageRollingBack ExecutionStage = "ROLLING_BACK"
+	StageRolledBack  ExecutionStage = "ROLLED_BACK"
 )
 
 // Logger interface for migration execution logging
@@ -100,7 +100,7 @@ func (e *MigrationExecutor) ExecuteDataMigrations(ctx context.Context, tableName
 	// Execute each migration in order
 	for i, migration := range orderedMigrations {
 		e.logger.Info("Executing migration %d/%d: %s", i+1, len(orderedMigrations), migration.Name)
-		
+
 		if err := e.ExecuteSingleDataMigration(ctx, tableName, migration); err != nil {
 			return errors.Wrapf(err, "failed to execute migration %s", migration.Name)
 		}
@@ -113,7 +113,7 @@ func (e *MigrationExecutor) ExecuteDataMigrations(ctx context.Context, tableName
 // ExecuteSingleDataMigration executes a single data migration with all safety features
 func (e *MigrationExecutor) ExecuteSingleDataMigration(ctx context.Context, tableName string, migration *schemasv1alpha4.DataMigration) error {
 	startTime := time.Now()
-	
+
 	// Report progress: Starting validation
 	if e.progressCallback != nil {
 		e.progressCallback(migration.Name, ProgressInfo{
@@ -220,7 +220,7 @@ func (e *MigrationExecutor) executeMigrationWithSafety(ctx context.Context, tabl
 	// Execute with or without batching
 	if migration.BatchSize > 0 {
 		e.logger.Info("Executing migration %s with batching (batch size: %d)", migration.Name, migration.BatchSize)
-		
+
 		if e.progressCallback != nil {
 			e.progressCallback(migration.Name, ProgressInfo{
 				Stage:       StageBatching,
@@ -314,7 +314,7 @@ func (e *MigrationExecutor) createPostgresExecutor() (interfaces.DataMigrationEx
 	return NewPostgresDataMigrationExecutor(conn), nil
 }
 
-// createMysqlExecutor creates a MySQL data migration executor  
+// createMysqlExecutor creates a MySQL data migration executor
 func (e *MigrationExecutor) createMysqlExecutor() (interfaces.DataMigrationExecutor, error) {
 	conn, err := mysql.Connect(e.uri)
 	if err != nil {
@@ -373,7 +373,7 @@ func (e *PostgresDataMigrationExecutor) ExecuteInBatches(sql string, batchSize i
 
 	for {
 		batchCount++
-		
+
 		// Add LIMIT to SQL if not present
 		batchSQL := sql
 		if !strings.Contains(strings.ToUpper(sql), "LIMIT") {
@@ -424,7 +424,7 @@ func (e *PostgresDataMigrationExecutor) ExecuteInBatches(sql string, batchSize i
 // CheckMigrationConditions verifies all conditions before execution
 func (e *PostgresDataMigrationExecutor) CheckMigrationConditions(conditions []schemasv1alpha4.DataMigrationCondition) (bool, error) {
 	planner := postgres.NewPostgresDataMigrationPlanner(e.connection)
-	
+
 	for _, condition := range conditions {
 		result, err := planner.ValidateCondition(condition)
 		if err != nil {
@@ -434,7 +434,7 @@ func (e *PostgresDataMigrationExecutor) CheckMigrationConditions(conditions []sc
 			return false, nil // Condition not met
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -509,7 +509,7 @@ func (e *MysqlDataMigrationExecutor) ExecuteInBatches(sql string, batchSize int3
 
 	for {
 		batchCount++
-		
+
 		// Add LIMIT to SQL if not present (MySQL syntax)
 		batchSQL := sql
 		if !strings.Contains(strings.ToUpper(sql), "LIMIT") {
@@ -564,7 +564,7 @@ func (e *MysqlDataMigrationExecutor) ExecuteInBatches(sql string, batchSize int3
 // CheckMigrationConditions verifies all conditions before execution
 func (e *MysqlDataMigrationExecutor) CheckMigrationConditions(conditions []schemasv1alpha4.DataMigrationCondition) (bool, error) {
 	planner := mysql.NewMysqlDataMigrationPlanner(e.connection)
-	
+
 	for _, condition := range conditions {
 		result, err := planner.ValidateCondition(condition)
 		if err != nil {
@@ -574,7 +574,7 @@ func (e *MysqlDataMigrationExecutor) CheckMigrationConditions(conditions []schem
 			return false, nil // Condition not met
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -595,4 +595,4 @@ func (e *MysqlDataMigrationExecutor) getMigrationSQL(migration *schemasv1alpha4.
 	}
 
 	return "", fmt.Errorf("migration has neither SQL nor template")
-} 
+}

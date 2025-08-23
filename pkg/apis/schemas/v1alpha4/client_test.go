@@ -65,7 +65,7 @@ func TestGeneratedClientCode(t *testing.T) {
 
 		// Test DeepCopy
 		copied := original.DeepCopy()
-		
+
 		// Verify it's a different object
 		assert.NotSame(t, original, copied)
 		assert.NotSame(t, original.Template, copied.Template)
@@ -78,21 +78,21 @@ func TestGeneratedClientCode(t *testing.T) {
 		if len(original.Tags) > 0 && len(copied.Tags) > 0 {
 			assert.NotSame(t, &original.Tags[0], &copied.Tags[0])
 		}
-		
+
 		// Verify content is the same
 		assert.Equal(t, original.Name, copied.Name)
 		assert.Equal(t, original.Description, copied.Description)
 		assert.Equal(t, original.SQL, copied.SQL)
 		assert.Equal(t, original.Type, copied.Type)
 		assert.Equal(t, original.Priority, copied.Priority)
-		
+
 		// Modify the copy and verify original is unchanged
 		copied.Name = "modified"
 		copied.Template.Template = "modified template"
 		copied.Conditions[0].Value = 999
 		copied.DependsOn[0] = "modified-dep"
 		copied.Tags[0] = "modified-tag"
-		
+
 		assert.Equal(t, "test-migration", original.Name)
 		assert.Equal(t, "UPDATE {{.table}} SET {{.column}} = {{.value}}", original.Template.Template)
 		assert.Equal(t, int64(0), original.Conditions[0].Value)
@@ -124,7 +124,7 @@ func TestGeneratedClientCode(t *testing.T) {
 
 		// Test DeepCopy
 		copied := original.DeepCopy()
-		
+
 		// Verify it's a different object
 		assert.NotSame(t, original, copied)
 		if len(original.Requires) > 0 && len(copied.Requires) > 0 {
@@ -133,19 +133,19 @@ func TestGeneratedClientCode(t *testing.T) {
 		if len(original.DataMigrations) > 0 && len(copied.DataMigrations) > 0 {
 			assert.NotSame(t, &original.DataMigrations[0], &copied.DataMigrations[0])
 		}
-		
+
 		// Verify content is the same
 		assert.Equal(t, original.Database, copied.Database)
 		assert.Equal(t, original.Name, copied.Name)
 		assert.Len(t, copied.DataMigrations, 2)
 		assert.Equal(t, "migration1", copied.DataMigrations[0].Name)
 		assert.Equal(t, "migration2", copied.DataMigrations[1].Name)
-		
+
 		// Modify the copy and verify original is unchanged
 		copied.DataMigrations[0].Name = "modified"
 		copied.DataMigrations[0].Conditions[0].Query = "SELECT 2"
 		copied.DataMigrations[1].Tags[0] = "modified-tag"
-		
+
 		assert.Equal(t, "migration1", original.DataMigrations[0].Name)
 		assert.Equal(t, "SELECT 1", original.DataMigrations[0].Conditions[0].Query)
 		assert.Equal(t, "tag1", original.DataMigrations[1].Tags[0])
@@ -165,14 +165,14 @@ func TestGeneratedClientCode(t *testing.T) {
 
 		// Test DeepCopy
 		copied := original.DeepCopy()
-		
+
 		// Verify it's a different object
 		assert.NotSame(t, original, copied)
-		
+
 		// Verify content is the same
 		assert.Equal(t, original.GeneratedDML, copied.GeneratedDML)
 		assert.Equal(t, original.EditedDML, copied.EditedDML)
-		
+
 		// Modify the copy and verify original is unchanged
 		copied.GeneratedDML = "modified DML"
 		assert.Equal(t, "UPDATE test SET new_col = 'value'", original.GeneratedDML)
@@ -181,26 +181,26 @@ func TestGeneratedClientCode(t *testing.T) {
 	t.Run("deepcopy for MigrationStatus with data migration fields", func(t *testing.T) {
 		// Create a MigrationStatus with new fields
 		original := &MigrationStatus{
-			Phase:                  "PLANNED",
-			PlannedAt:              123456789,
-			SchemaMigrationStatus:  DataMigrationPending,
-			DataMigrationStatus:    DataMigrationRunning,
-			EstimatedDataRows:      1000000,
-			EstimatedDuration:      "5m30s",
+			Phase:                 "PLANNED",
+			PlannedAt:             123456789,
+			SchemaMigrationStatus: DataMigrationPending,
+			DataMigrationStatus:   DataMigrationRunning,
+			EstimatedDataRows:     1000000,
+			EstimatedDuration:     "5m30s",
 		}
 
 		// Test DeepCopy
 		copied := original.DeepCopy()
-		
+
 		// Verify it's a different object
 		assert.NotSame(t, original, copied)
-		
+
 		// Verify content is the same
 		assert.Equal(t, original.SchemaMigrationStatus, copied.SchemaMigrationStatus)
 		assert.Equal(t, original.DataMigrationStatus, copied.DataMigrationStatus)
 		assert.Equal(t, original.EstimatedDataRows, copied.EstimatedDataRows)
 		assert.Equal(t, original.EstimatedDuration, copied.EstimatedDuration)
-		
+
 		// Modify the copy and verify original is unchanged
 		copied.DataMigrationStatus = DataMigrationCompleted
 		assert.Equal(t, DataMigrationRunning, original.DataMigrationStatus)
@@ -323,4 +323,4 @@ func TestNewTypesIntegration(t *testing.T) {
 	require.NotNil(t, migrationCopy)
 	assert.Equal(t, migration.Spec.GeneratedDML, migrationCopy.Spec.GeneratedDML)
 	assert.Equal(t, migration.Status.DataMigrationStatus, migrationCopy.Status.DataMigrationStatus)
-} 
+}

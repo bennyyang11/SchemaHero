@@ -35,20 +35,20 @@ type DataMigrationValidator struct {
 func NewDataMigrationValidator() *DataMigrationValidator {
 	return &DataMigrationValidator{
 		allowedOperators: map[string]bool{
-			">":         true,
-			"<":         true,
-			">=":        true,
-			"<=":        true,
-			"=":         true,
-			"!=":        true,
-			"EXISTS":    true,
+			">":          true,
+			"<":          true,
+			">=":         true,
+			"<=":         true,
+			"=":          true,
+			"!=":         true,
+			"EXISTS":     true,
 			"NOT EXISTS": true,
 		},
 		sqlPatterns: []*regexp.Regexp{
 			// Dangerous operations that should be caught
 			regexp.MustCompile(`(?i)\bDROP\s+(TABLE|DATABASE|SCHEMA)\b`),
 			regexp.MustCompile(`(?i)\bTRUNCATE\s+TABLE\b`),
-			regexp.MustCompile(`(?i)\bDELETE\s+FROM\s+\w+\s*;`), // DELETE without WHERE
+			regexp.MustCompile(`(?i)\bDELETE\s+FROM\s+\w+\s*;`),     // DELETE without WHERE
 			regexp.MustCompile(`(?i)\bUPDATE\s+\w+\s+SET\s+.*\s*;`), // UPDATE without WHERE
 		},
 	}
@@ -60,67 +60,67 @@ func (v *DataMigrationValidator) ValidateDataMigration(dm *schemasv1alpha4.DataM
 	if err := v.validateName(dm.Name); err != nil {
 		return err
 	}
-	
+
 	// Validate SQL or template (one must be provided)
 	if dm.SQL == "" && dm.Template == nil {
 		return fmt.Errorf("either sql or template must be provided")
 	}
-	
+
 	if dm.SQL != "" && dm.Template != nil {
 		return fmt.Errorf("only one of sql or template should be provided")
 	}
-	
+
 	// Validate SQL content
 	if dm.SQL != "" {
 		if err := v.validateSQL(dm.SQL); err != nil {
 			return fmt.Errorf("invalid SQL: %w", err)
 		}
 	}
-	
+
 	// Validate template
 	if dm.Template != nil {
 		if err := v.validateTemplate(dm.Template); err != nil {
 			return fmt.Errorf("invalid template: %w", err)
 		}
 	}
-	
+
 	// Validate conditions
 	for i, condition := range dm.Conditions {
 		if err := v.validateCondition(condition); err != nil {
 			return fmt.Errorf("invalid condition[%d]: %w", i, err)
 		}
 	}
-	
+
 	// Validate batch configuration
 	if dm.BatchSize < 0 {
 		return fmt.Errorf("batchSize must be non-negative")
 	}
-	
+
 	if dm.BatchDelayMs < 0 {
 		return fmt.Errorf("batchDelayMs must be non-negative")
 	}
-	
+
 	// Validate timeout
 	if dm.Timeout != nil && dm.Timeout.Duration < 0 {
 		return fmt.Errorf("timeout must be non-negative")
 	}
-	
+
 	// Validate priority
 	if dm.Priority < 0 {
 		return fmt.Errorf("priority must be non-negative")
 	}
-	
+
 	// Validate reversible configuration
 	if dm.Reversible && dm.ReverseSQL == "" {
 		return fmt.Errorf("reverseSQL must be provided when reversible is true")
 	}
-	
+
 	if dm.ReverseSQL != "" {
 		if err := v.validateSQL(dm.ReverseSQL); err != nil {
 			return fmt.Errorf("invalid reverseSQL: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -129,17 +129,17 @@ func (v *DataMigrationValidator) validateName(name string) error {
 	if name == "" {
 		return fmt.Errorf("name is required")
 	}
-	
+
 	// Name should be valid Kubernetes name
 	nameRegex := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 	if !nameRegex.MatchString(name) {
 		return fmt.Errorf("name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character")
 	}
-	
+
 	if len(name) > 63 {
 		return fmt.Errorf("name must be no more than 63 characters")
 	}
-	
+
 	return nil
 }
 
@@ -148,22 +148,22 @@ func (v *DataMigrationValidator) validateSQL(sql string) error {
 	if sql == "" {
 		return fmt.Errorf("SQL cannot be empty")
 	}
-	
+
 	// Check for dangerous patterns
 	for _, pattern := range v.sqlPatterns {
 		if pattern.MatchString(sql) {
 			return fmt.Errorf("dangerous SQL pattern detected: %s", pattern.String())
 		}
 	}
-	
+
 	// Basic SQL validation
 	trimmedSQL := strings.TrimSpace(sql)
-	
+
 	// Should not end with GO or delimiter commands
 	if regexp.MustCompile(`(?i)\bGO\s*$`).MatchString(trimmedSQL) {
 		return fmt.Errorf("SQL should not end with GO statement")
 	}
-	
+
 	// Check for common SQL injection patterns
 	if strings.Contains(sql, "--") && !strings.HasPrefix(trimmedSQL, "--") {
 		// Allow comments at start of line but be suspicious of inline comments
@@ -175,7 +175,7 @@ func (v *DataMigrationValidator) validateSQL(sql string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -184,7 +184,7 @@ func (v *DataMigrationValidator) validateTemplate(tmpl *schemasv1alpha4.DataMigr
 	if tmpl.Template == "" {
 		return fmt.Errorf("template cannot be empty")
 	}
-	
+
 	// Try to parse the template
 	testValues := make(map[string]interface{})
 	for _, param := range tmpl.Parameters {
@@ -204,25 +204,25 @@ func (v *DataMigrationValidator) validateTemplate(tmpl *schemasv1alpha4.DataMigr
 			testValues[param.Name] = "test"
 		}
 	}
-	
+
 	// Try to render template with test values
 	rendered, err := schemasv1alpha4.RenderTemplate(tmpl.Template, testValues)
 	if err != nil {
 		return fmt.Errorf("template parsing failed: %w", err)
 	}
-	
+
 	// Validate rendered SQL
 	if err := v.validateSQL(rendered); err != nil {
 		return fmt.Errorf("rendered template produces invalid SQL: %w", err)
 	}
-	
+
 	// Validate parameters
 	for i, param := range tmpl.Parameters {
 		if err := v.validateTemplateParameter(param); err != nil {
 			return fmt.Errorf("invalid parameter[%d]: %w", i, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -231,13 +231,13 @@ func (v *DataMigrationValidator) validateTemplateParameter(param schemasv1alpha4
 	if param.Name == "" {
 		return fmt.Errorf("parameter name is required")
 	}
-	
+
 	// Validate parameter name (should be valid Go identifier)
 	paramRegex := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 	if !paramRegex.MatchString(param.Name) {
 		return fmt.Errorf("parameter name must be a valid identifier")
 	}
-	
+
 	// Validate parameter type
 	validTypes := map[schemasv1alpha4.ParameterType]bool{
 		schemasv1alpha4.ParameterTypeString:    true,
@@ -249,11 +249,11 @@ func (v *DataMigrationValidator) validateTemplateParameter(param schemasv1alpha4
 		schemasv1alpha4.ParameterTypeTable:     true,
 		schemasv1alpha4.ParameterTypeColumn:    true,
 	}
-	
+
 	if !validTypes[param.Type] {
 		return fmt.Errorf("invalid parameter type: %s", param.Type)
 	}
-	
+
 	return nil
 }
 
@@ -262,28 +262,28 @@ func (v *DataMigrationValidator) validateCondition(condition schemasv1alpha4.Dat
 	if condition.Query == "" {
 		return fmt.Errorf("condition query is required")
 	}
-	
+
 	if !v.allowedOperators[condition.Operator] {
 		return fmt.Errorf("invalid operator: %s", condition.Operator)
 	}
-	
+
 	// For EXISTS and NOT EXISTS, value should be ignored
 	if condition.Operator == "EXISTS" || condition.Operator == "NOT EXISTS" {
 		if condition.Value != 0 {
 			return fmt.Errorf("value should not be set for %s operator", condition.Operator)
 		}
 	}
-	
+
 	// Validate the query itself
 	if err := v.validateSQL(condition.Query); err != nil {
 		return fmt.Errorf("invalid condition query: %w", err)
 	}
-	
+
 	// Query should be a SELECT statement
 	if !regexp.MustCompile(`(?i)^\s*SELECT\b`).MatchString(condition.Query) {
 		return fmt.Errorf("condition query must be a SELECT statement")
 	}
-	
+
 	return nil
 }
 
@@ -296,18 +296,18 @@ func (v *DataMigrationValidator) ValidateDataMigrations(migrations []schemasv1al
 			return fmt.Errorf("duplicate migration name: %s", dm.Name)
 		}
 		names[dm.Name] = true
-		
+
 		// Validate individual migration
 		if err := v.ValidateDataMigration(&migrations[i]); err != nil {
 			return fmt.Errorf("migration[%d] %s: %w", i, dm.Name, err)
 		}
 	}
-	
+
 	// Validate dependencies exist
 	resolver := schemasv1alpha4.NewDependencyResolver(migrations)
 	if err := resolver.ValidateDependencies(); err != nil {
 		return fmt.Errorf("dependency validation failed: %w", err)
 	}
-	
+
 	return nil
-} 
+}

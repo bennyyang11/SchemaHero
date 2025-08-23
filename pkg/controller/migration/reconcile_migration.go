@@ -168,7 +168,7 @@ func (r *ReconcileMigration) executeDataPhase(ctx context.Context, migration *sc
 	// Mark data phase as completed
 	migration.Status.DataMigrationStatus = schemasv1alpha4.DataMigrationCompleted
 	metrics.CompleteDataMigration(migration.Name, schemasv1alpha4.DataMigrationCompleted, rowsAffected, "")
-	
+
 	return r.updateMigrationStatus(ctx, migration)
 }
 
@@ -184,10 +184,10 @@ func (r *ReconcileMigration) executeDataMigrationsWithRetry(ctx context.Context,
 				zap.String("migration", migration.Name),
 				zap.Int("attempt", attempt+1),
 				zap.Int("maxRetries", maxRetries))
-			
+
 			// Record retry attempt
 			metrics.RecordRetry(migration.Name)
-			
+
 			// Exponential backoff
 			delay := time.Duration(attempt) * baseDelay
 			time.Sleep(delay)
@@ -316,7 +316,7 @@ func shouldApplySchemaPhase(migration *schemasv1alpha4.Migration) bool {
 	if migration.Spec.GeneratedDDL == "" {
 		return false
 	}
-	
+
 	return migration.Status.SchemaMigrationStatus != schemasv1alpha4.DataMigrationCompleted &&
 		migration.Status.SchemaMigrationStatus != schemasv1alpha4.DataMigrationFailed
 }
@@ -327,14 +327,14 @@ func shouldApplyDataPhase(migration *schemasv1alpha4.Migration) bool {
 	if migration.Status.DataMigrationStatus == "" || migration.Spec.GeneratedDML == "" {
 		return false
 	}
-	
+
 	// Data phase can only execute after schema phase is complete (or no schema phase needed)
 	hasSchema := migration.Spec.GeneratedDDL != ""
 	schemaComplete := !hasSchema || migration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationCompleted
-	
+
 	dataNeeded := migration.Status.DataMigrationStatus != schemasv1alpha4.DataMigrationCompleted &&
 		migration.Status.DataMigrationStatus != schemasv1alpha4.DataMigrationFailed
-	
+
 	return schemaComplete && dataNeeded
 }
 

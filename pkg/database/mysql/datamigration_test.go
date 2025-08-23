@@ -37,24 +37,24 @@ func TestMysqlDataMigrationPlanning(t *testing.T) {
 		// Mock the planner without database connection
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "UPDATE users SET status = 'active'")
 	})
 
 	t.Run("MySQL-specific SQL adaptation", func(t *testing.T) {
 		planner := &MysqlDataMigrationPlanner{}
-		
+
 		// Test PostgreSQL concatenation converted to MySQL
 		sql, err := planner.GetDatabaseSpecificSQL("UPDATE users SET name = first_name || ' ' || last_name")
 		require.NoError(t, err)
 		assert.Contains(t, sql, "CONCAT(") // PostgreSQL || should become MySQL CONCAT
-		
+
 		// Test timestamp function conversion
 		sql, err = planner.GetDatabaseSpecificSQL("UPDATE users SET created_at = CURRENT_DATE")
 		require.NoError(t, err)
 		assert.Contains(t, sql, "CURDATE()") // PostgreSQL CURRENT_DATE should become MySQL CURDATE()
-		
+
 		// Test identifier quoting
 		sql, err = planner.GetDatabaseSpecificSQL(`UPDATE "users" SET "email" = 'test'`)
 		require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestMysqlDataMigrationPlanning(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "UPDATE users SET")
 		assert.Contains(t, sql, "'test@mysql.com'")
@@ -92,14 +92,14 @@ func TestMysqlDataMigrationPlanning(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "LIMIT 2000")
 	})
 
 	t.Run("MySQL interval syntax conversion", func(t *testing.T) {
 		planner := &MysqlDataMigrationPlanner{}
-		
+
 		// Test PostgreSQL interval syntax converted to MySQL
 		sql, err := planner.GetDatabaseSpecificSQL("DELETE FROM logs WHERE created_at < NOW() - INTERVAL '30 days'")
 		require.NoError(t, err)
@@ -126,9 +126,9 @@ func TestMysqlDataMigrationPlanning(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		statements, err := planner.PlanDataMigrations("users", migrations)
-		
+
 		require.NoError(t, err)
-		
+
 		// Verify correct ordering in the generated statements
 		sqlContent := strings.Join(statements, "\n")
 		startPos := strings.Index(sqlContent, "migration_started = true")
@@ -148,7 +148,7 @@ func TestMysqlTemplateProcessing(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "NOW()")
 		assert.Contains(t, sql, "CURDATE()")
@@ -167,7 +167,7 @@ func TestMysqlTemplateProcessing(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "active = false")
 		assert.Contains(t, sql, "price = 99")
@@ -185,10 +185,10 @@ func TestMysqlTemplateProcessing(t *testing.T) {
 
 		planner := &MysqlDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "price * 1")
 		assert.Contains(t, sql, "NOW()")
 		assert.Contains(t, sql, "'pending'")
 	})
-} 
+}

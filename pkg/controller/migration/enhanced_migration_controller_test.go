@@ -66,8 +66,8 @@ func TestEnhancedMigrationController(t *testing.T) {
 
 	t.Run("migration approval workflow", func(t *testing.T) {
 		tests := []struct {
-			name       string
-			migration  *schemasv1alpha4.Migration
+			name        string
+			migration   *schemasv1alpha4.Migration
 			shouldApply bool
 		}{
 			{
@@ -114,11 +114,11 @@ func TestEnhancedMigrationController(t *testing.T) {
 		controller := &ReconcileMigration{}
 
 		tests := []struct {
-			name           string
-			generatedDML   string
-			expectedCount  int
-			expectedName   string
-			expectedSQL    string
+			name          string
+			generatedDML  string
+			expectedCount int
+			expectedName  string
+			expectedSQL   string
 		}{
 			{
 				name:          "empty DML",
@@ -226,7 +226,7 @@ func TestMigrationMetrics(t *testing.T) {
 
 		// Start schema migration
 		metrics.StartSchemaMigration(migrationName)
-		
+
 		schemaMetrics := metrics.GetSchemaMetrics()
 		require.Contains(t, schemaMetrics, migrationName)
 		assert.Equal(t, "schema", schemaMetrics[migrationName].Phase)
@@ -253,7 +253,7 @@ func TestMigrationMetrics(t *testing.T) {
 
 		// Start data migration
 		metrics.StartDataMigration(migrationName)
-		
+
 		dataMetrics := metrics.GetDataMetrics()
 		require.Contains(t, dataMetrics, migrationName)
 		assert.Equal(t, "data", dataMetrics[migrationName].Phase)
@@ -375,7 +375,7 @@ func TestMigrationPhaseLogic(t *testing.T) {
 
 		// Should apply schema phase
 		assert.True(t, shouldApplySchemaPhase(migration))
-		
+
 		// Should not apply data phase (no DML and no data migration status)
 		migration.Status.SchemaMigrationStatus = schemasv1alpha4.DataMigrationCompleted
 		// Since DataMigrationStatus is empty, shouldApplyDataPhase should return false
@@ -396,7 +396,7 @@ func TestMigrationPhaseLogic(t *testing.T) {
 
 		// Should not apply schema phase (no DDL)
 		assert.False(t, shouldApplySchemaPhase(migration))
-		
+
 		// Should apply data phase, but only after schema phase is considered complete
 		migration.Status.SchemaMigrationStatus = schemasv1alpha4.DataMigrationCompleted
 		assert.True(t, shouldApplyDataPhase(migration))
@@ -412,7 +412,7 @@ func TestMigrationPhaseLogic(t *testing.T) {
 
 		// Should not apply schema phase when failed
 		assert.False(t, shouldApplySchemaPhase(migration))
-		
+
 		// Should not apply data phase when schema failed
 		assert.False(t, shouldApplyDataPhase(migration))
 	})
@@ -456,7 +456,7 @@ func TestExecutionPhaseLogic(t *testing.T) {
 		// Phase 1: Schema execution
 		assert.True(t, shouldApplySchemaPhase(migration))
 		migration.Status.SchemaMigrationStatus = schemasv1alpha4.DataMigrationRunning
-		
+
 		// Simulate schema completion
 		migration.Status.SchemaMigrationStatus = schemasv1alpha4.DataMigrationCompleted
 
@@ -491,7 +491,7 @@ func TestExecutionPhaseLogic(t *testing.T) {
 
 		// Should not retry schema (already complete)
 		assert.False(t, shouldApplySchemaPhase(migration))
-		
+
 		// Should not apply data phase (failed)
 		assert.False(t, shouldApplyDataPhase(migration))
 
@@ -522,7 +522,7 @@ func TestMetricsReset(t *testing.T) {
 		// Verify all metrics are cleared
 		assert.Empty(t, metrics.GetSchemaMetrics())
 		assert.Empty(t, metrics.GetDataMetrics())
-		
+
 		summary := metrics.GetSummaryMetrics()
 		assert.Equal(t, int64(0), summary.TotalMigrations)
 		assert.Equal(t, int64(0), summary.SuccessfulMigrations)
@@ -530,4 +530,4 @@ func TestMetricsReset(t *testing.T) {
 		assert.Equal(t, int64(0), summary.RetriedMigrations)
 		assert.Equal(t, 0.0, summary.SuccessRate)
 	})
-} 
+}

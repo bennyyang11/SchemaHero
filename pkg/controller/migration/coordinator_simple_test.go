@@ -78,8 +78,8 @@ func TestExecutionCoordination(t *testing.T) {
 
 		migration := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "progress-test"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "users"},
-			Status: schemasv1alpha4.MigrationStatus{Phase: schemasv1alpha4.Approved},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "users"},
+			Status:     schemasv1alpha4.MigrationStatus{Phase: schemasv1alpha4.Approved},
 		}
 
 		// Initialize progress
@@ -106,49 +106,49 @@ func TestExecutionCoordination(t *testing.T) {
 
 	t.Run("phase execution ordering", func(t *testing.T) {
 		tests := []struct {
-			name                string
-			generatedDDL        string
-			generatedDML        string
+			name                  string
+			generatedDDL          string
+			generatedDML          string
 			schemaMigrationStatus schemasv1alpha4.DataMigrationStatus
 			dataMigrationStatus   schemasv1alpha4.DataMigrationStatus
-			shouldExecuteSchema bool
-			shouldExecuteData   bool
+			shouldExecuteSchema   bool
+			shouldExecuteData     bool
 		}{
 			{
-				name:                "both phases needed",
-				generatedDDL:        "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
-				generatedDML:        "UPDATE users SET email = 'default@example.com'",
+				name:                  "both phases needed",
+				generatedDDL:          "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+				generatedDML:          "UPDATE users SET email = 'default@example.com'",
 				schemaMigrationStatus: schemasv1alpha4.DataMigrationPending,
 				dataMigrationStatus:   schemasv1alpha4.DataMigrationPending,
-				shouldExecuteSchema: true,
-				shouldExecuteData:   false, // Can't execute until schema is complete
+				shouldExecuteSchema:   true,
+				shouldExecuteData:     false, // Can't execute until schema is complete
 			},
 			{
-				name:                "data phase only",
-				generatedDDL:        "",
-				generatedDML:        "UPDATE users SET processed = true",
+				name:                  "data phase only",
+				generatedDDL:          "",
+				generatedDML:          "UPDATE users SET processed = true",
 				schemaMigrationStatus: "",
 				dataMigrationStatus:   schemasv1alpha4.DataMigrationPending,
-				shouldExecuteSchema: false,
-				shouldExecuteData:   true,
+				shouldExecuteSchema:   false,
+				shouldExecuteData:     true,
 			},
 			{
-				name:                "schema complete, data pending",
-				generatedDDL:        "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
-				generatedDML:        "UPDATE users SET email = 'default@example.com'",
+				name:                  "schema complete, data pending",
+				generatedDDL:          "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+				generatedDML:          "UPDATE users SET email = 'default@example.com'",
 				schemaMigrationStatus: schemasv1alpha4.DataMigrationCompleted,
 				dataMigrationStatus:   schemasv1alpha4.DataMigrationPending,
-				shouldExecuteSchema: false,
-				shouldExecuteData:   true,
+				shouldExecuteSchema:   false,
+				shouldExecuteData:     true,
 			},
 			{
-				name:                "both phases complete",
-				generatedDDL:        "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
-				generatedDML:        "UPDATE users SET email = 'default@example.com'",
+				name:                  "both phases complete",
+				generatedDDL:          "ALTER TABLE users ADD COLUMN email VARCHAR(255)",
+				generatedDML:          "UPDATE users SET email = 'default@example.com'",
 				schemaMigrationStatus: schemasv1alpha4.DataMigrationCompleted,
 				dataMigrationStatus:   schemasv1alpha4.DataMigrationCompleted,
-				shouldExecuteSchema: false,
-				shouldExecuteData:   false,
+				shouldExecuteSchema:   false,
+				shouldExecuteData:     false,
 			},
 		}
 
@@ -247,7 +247,7 @@ func TestProgressTrackingDetailed(t *testing.T) {
 
 		migration := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "progress-update-test"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "users"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "users"},
 		}
 
 		coordinator.initializeProgress(migration)
@@ -319,7 +319,7 @@ func TestCoordinatorPhaseLogic(t *testing.T) {
 
 		// Should execute schema phase
 		assert.True(t, shouldExecuteSchemaPhase(migration))
-		
+
 		// After completion, should not execute again
 		migration.Status.SchemaMigrationStatus = schemasv1alpha4.DataMigrationCompleted
 		assert.False(t, shouldExecuteSchemaPhase(migration))
@@ -377,8 +377,8 @@ func TestCoordinatorProgressTracking(t *testing.T) {
 
 		migration := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "progress-init-test"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "users"},
-			Status: schemasv1alpha4.MigrationStatus{Phase: schemasv1alpha4.Approved},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "users"},
+			Status:     schemasv1alpha4.MigrationStatus{Phase: schemasv1alpha4.Approved},
 		}
 
 		coordinator.initializeProgress(migration)
@@ -400,7 +400,7 @@ func TestCoordinatorProgressTracking(t *testing.T) {
 
 		migration := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "phase-test"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "users"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "users"},
 		}
 
 		coordinator.initializeProgress(migration)
@@ -461,12 +461,12 @@ func TestExecutionLockingCoordination(t *testing.T) {
 
 		migration1 := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "concurrent-1"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "shared_table"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "shared_table"},
 		}
 
 		migration2 := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "concurrent-2"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "shared_table"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "shared_table"},
 		}
 
 		// First migration should acquire lock
@@ -493,12 +493,12 @@ func TestExecutionLockingCoordination(t *testing.T) {
 
 		migration1 := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "table1-migration"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "table1"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "table1"},
 		}
 
 		migration2 := &schemasv1alpha4.Migration{
 			ObjectMeta: metav1.ObjectMeta{Name: "table2-migration"},
-			Spec: schemasv1alpha4.MigrationSpec{TableName: "table2"},
+			Spec:       schemasv1alpha4.MigrationSpec{TableName: "table2"},
 		}
 
 		// Both should acquire locks successfully
@@ -511,4 +511,4 @@ func TestExecutionLockingCoordination(t *testing.T) {
 		assert.Equal(t, "table1", lock1.TableName)
 		assert.Equal(t, "table2", lock2.TableName)
 	})
-} 
+}

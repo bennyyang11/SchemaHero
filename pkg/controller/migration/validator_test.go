@@ -29,7 +29,7 @@ import (
 func TestEnhancedDataMigrationValidator(t *testing.T) {
 	t.Run("safe migrations pass validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		safeMigrations := []*schemasv1alpha4.DataMigration{
 			{
 				Name: "safe-update",
@@ -53,7 +53,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("dangerous operations are caught", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		dangerousMigrations := []*schemasv1alpha4.DataMigration{
 			{
 				Name: "drop-table",
@@ -76,7 +76,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 		for _, migration := range dangerousMigrations {
 			result, err := validator.ValidateDataMigration(migration)
 			require.NoError(t, err)
-			
+
 			// For now, just test that validation runs without errors
 			// The specific dangerous operation detection can be enhanced
 			assert.NotNil(t, result, "Validation result should not be nil")
@@ -85,7 +85,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("resource usage estimation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		// Large operation migration
 		largeMigration := &schemasv1alpha4.DataMigration{
 			Name: "large-update",
@@ -94,11 +94,11 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 		result, err := validator.ValidateDataMigration(largeMigration)
 		require.NoError(t, err)
-		
+
 		// Should estimate high row count and generate warnings
 		assert.Greater(t, result.EstimatedRows, int64(10000))
 		assert.Greater(t, result.EstimatedDuration, time.Millisecond*100)
-		
+
 		// Should have warnings about large dataset
 		foundHighRowWarning := false
 		for _, warning := range result.Warnings {
@@ -112,7 +112,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("batch configuration validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		tests := []struct {
 			name          string
 			migration     *schemasv1alpha4.DataMigration
@@ -165,14 +165,14 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				result, err := validator.ValidateDataMigration(tt.migration)
 				require.NoError(t, err)
-				
+
 				if tt.shouldBeValid {
 					assert.True(t, result.IsValid, "Migration should be valid")
 					assert.Empty(t, result.Errors, "Should have no errors")
 				} else {
 					assert.False(t, result.IsValid, "Migration should be invalid")
 					assert.NotEmpty(t, result.Errors, "Should have errors")
-					
+
 					// Check for expected error code
 					foundExpectedError := false
 					for _, validationErr := range result.Errors {
@@ -189,7 +189,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("template validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		// Valid template
 		validTemplate := &schemasv1alpha4.DataMigration{
 			Name: "valid-template",
@@ -223,7 +223,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("dependency cycle detection", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		// Circular dependencies
 		circularMigrations := []schemasv1alpha4.DataMigration{
 			{Name: "a", SQL: "UPDATE users SET step = 1", DependsOn: []string{"c"}},
@@ -234,7 +234,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 		result, err := validator.ValidateDataMigrations(circularMigrations)
 		require.NoError(t, err)
 		assert.False(t, result.IsValid)
-		
+
 		// Should have circular dependency error
 		foundCircularError := false
 		for _, validationErr := range result.Errors {
@@ -277,7 +277,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 
 	t.Run("reversible migration validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		// Valid reversible migration
 		validReversible := &schemasv1alpha4.DataMigration{
 			Name:       "valid-reversible",
@@ -301,7 +301,7 @@ func TestEnhancedDataMigrationValidator(t *testing.T) {
 		result, err = validator.ValidateDataMigration(invalidReversible)
 		require.NoError(t, err)
 		assert.False(t, result.IsValid)
-		
+
 		foundMissingReverseError := false
 		for _, validationErr := range result.Errors {
 			if validationErr.Code == "MISSING_REVERSE_SQL" {
@@ -366,11 +366,11 @@ func TestValidationResultSummary(t *testing.T) {
 func TestSQLSafetyValidation(t *testing.T) {
 	t.Run("forbidden operations", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		forbiddenQueries := []struct {
-			name  string
-			sql   string
-			code  string
+			name string
+			sql  string
+			code string
 		}{
 			{"drop table", "DROP TABLE users", "FORBIDDEN_OPERATION"},
 			{"truncate", "TRUNCATE TABLE logs", "FORBIDDEN_OPERATION"},
@@ -387,10 +387,10 @@ func TestSQLSafetyValidation(t *testing.T) {
 
 				result, err := validator.ValidateDataMigration(migration)
 				require.NoError(t, err)
-				
+
 				// Test that validation completes and detects issues
 				assert.NotNil(t, result, "Validation result should not be nil")
-				
+
 				// For dangerous operations, should either be invalid or have warnings
 				if !result.IsValid || len(result.Errors) > 0 || len(result.Warnings) > 0 || result.RequiresApproval {
 					// Validator detected the dangerous operation
@@ -402,7 +402,7 @@ func TestSQLSafetyValidation(t *testing.T) {
 
 	t.Run("operations requiring approval", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		migration := &schemasv1alpha4.DataMigration{
 			Name: "delete-test",
 			SQL:  "DELETE FROM users WHERE last_login < NOW() - INTERVAL '2 years'",
@@ -415,7 +415,7 @@ func TestSQLSafetyValidation(t *testing.T) {
 
 	t.Run("SQL injection detection", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		suspiciousQueries := []string{
 			"UPDATE users SET name = 'test'; DROP TABLE users; --'",
 			"SELECT * FROM users UNION SELECT password FROM admin_users",
@@ -429,7 +429,7 @@ func TestSQLSafetyValidation(t *testing.T) {
 
 			result, err := validator.ValidateDataMigration(migration)
 			require.NoError(t, err)
-			
+
 			// For now, just test that validation completes
 			// SQL injection detection can be enhanced
 			assert.NotNil(t, result, "Validation result should not be nil")
@@ -440,7 +440,7 @@ func TestSQLSafetyValidation(t *testing.T) {
 func TestDatabaseSpecificValidation(t *testing.T) {
 	t.Run("PostgreSQL validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		migration := &schemasv1alpha4.DataMigration{
 			Name: "postgres-test",
 			SQL:  "UPDATE users SET data = data::jsonb || '{\"updated\": true}'::jsonb WHERE email ~ '^[a-z]+@'",
@@ -449,14 +449,14 @@ func TestDatabaseSpecificValidation(t *testing.T) {
 		result, err := validator.ValidateDataMigration(migration)
 		require.NoError(t, err)
 		assert.True(t, result.IsValid)
-		
+
 		// Test that PostgreSQL validation completes successfully
 		assert.NotNil(t, result, "PostgreSQL validation should complete")
 	})
 
 	t.Run("MySQL validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("mysql")
-		
+
 		migration := &schemasv1alpha4.DataMigration{
 			Name: "mysql-test",
 			SQL:  "UPDATE users SET full_name = CONCAT(first_name, ' ', last_name) WHERE FIND_IN_SET('active', status)",
@@ -469,7 +469,7 @@ func TestDatabaseSpecificValidation(t *testing.T) {
 
 	t.Run("SQLite validation", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("sqlite")
-		
+
 		migration := &schemasv1alpha4.DataMigration{
 			Name: "sqlite-test",
 			SQL:  "UPDATE users SET name = 'test' FROM other_table", // Invalid SQLite syntax
@@ -485,7 +485,7 @@ func TestDatabaseSpecificValidation(t *testing.T) {
 func TestDependencyValidation(t *testing.T) {
 	t.Run("valid dependencies", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		migrations := []schemasv1alpha4.DataMigration{
 			{Name: "first", SQL: "UPDATE users SET step = 1"},
 			{Name: "second", SQL: "UPDATE users SET step = 2", DependsOn: []string{"first"}},
@@ -500,7 +500,7 @@ func TestDependencyValidation(t *testing.T) {
 
 	t.Run("missing dependencies", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		migrations := []schemasv1alpha4.DataMigration{
 			{Name: "dependent", SQL: "UPDATE users SET step = 2", DependsOn: []string{"missing"}},
 		}
@@ -508,7 +508,7 @@ func TestDependencyValidation(t *testing.T) {
 		result, err := validator.ValidateDataMigrations(migrations)
 		require.NoError(t, err)
 		assert.False(t, result.IsValid)
-		
+
 		foundMissingDepError := false
 		for _, validationErr := range result.Errors {
 			if validationErr.Code == "MISSING_DEPENDENCY" {
@@ -521,7 +521,7 @@ func TestDependencyValidation(t *testing.T) {
 
 	t.Run("circular dependencies", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		migrations := []schemasv1alpha4.DataMigration{
 			{Name: "a", SQL: "UPDATE users SET step = 1", DependsOn: []string{"b"}},
 			{Name: "b", SQL: "UPDATE users SET step = 2", DependsOn: []string{"c"}},
@@ -531,7 +531,7 @@ func TestDependencyValidation(t *testing.T) {
 		result, err := validator.ValidateDataMigrations(migrations)
 		require.NoError(t, err)
 		assert.False(t, result.IsValid)
-		
+
 		foundCircularError := false
 		for _, validationErr := range result.Errors {
 			if validationErr.Code == "CIRCULAR_DEPENDENCY" {
@@ -546,7 +546,7 @@ func TestDependencyValidation(t *testing.T) {
 func TestResourceEstimation(t *testing.T) {
 	t.Run("resource estimation accuracy", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		testCases := []struct {
 			name              string
 			sql               string
@@ -582,7 +582,7 @@ func TestResourceEstimation(t *testing.T) {
 
 				result, err := validator.ValidateDataMigration(migration)
 				require.NoError(t, err)
-				
+
 				assert.GreaterOrEqual(t, result.EstimatedRows, tc.expectedMinRows)
 				assert.Greater(t, result.EstimatedDuration, time.Duration(0))
 			})
@@ -591,20 +591,20 @@ func TestResourceEstimation(t *testing.T) {
 
 	t.Run("batch size recommendations", func(t *testing.T) {
 		validator := NewEnhancedDataMigrationValidator("postgres")
-		
+
 		// Large operation without batching
 		largeMigration := &schemasv1alpha4.DataMigration{
 			Name:      "large-no-batch",
 			SQL:       "UPDATE users SET processed = true", // No WHERE = affects all rows
-			BatchSize: 0, // No batching
+			BatchSize: 0,                                   // No batching
 		}
 
 		result, err := validator.ValidateDataMigration(largeMigration)
 		require.NoError(t, err)
-		
+
 		// Test that validation completes and estimates resources
 		assert.NotNil(t, result, "Validation result should not be nil")
 		assert.GreaterOrEqual(t, result.EstimatedRows, int64(0), "Should estimate rows")
 		assert.GreaterOrEqual(t, result.EstimatedDuration, time.Duration(0), "Should estimate duration")
 	})
-} 
+}

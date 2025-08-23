@@ -16,6 +16,12 @@ func Connect(dsn string) (*SqliteConnection, error) {
 		return nil, err
 	}
 
+	// Actually test the connection
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	sqliteConnection := SqliteConnection{
 		db: db,
 	}

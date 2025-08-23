@@ -94,21 +94,21 @@ func GetMigrationsCmd() *cobra.Command {
 				// Determine migration type and status
 				migrationType := "DDL"
 				migrationStatus := string(m.Status.Phase)
-				
+
 				if m.Spec.GeneratedDML != "" {
 					if m.Spec.GeneratedDDL != "" {
 						migrationType = "DDL+DML"
 					} else {
 						migrationType = "DML"
 					}
-					
+
 					// Show more detailed status for data migrations
 					if m.Status.DataMigrationStatus != "" {
 						schemaStatus := string(m.Status.SchemaMigrationStatus)
 						dataStatus := string(m.Status.DataMigrationStatus)
 						if schemaStatus != "" && dataStatus != "" {
-							migrationStatus = fmt.Sprintf("S:%s D:%s", 
-								shortenStatus(schemaStatus), 
+							migrationStatus = fmt.Sprintf("S:%s D:%s",
+								shortenStatus(schemaStatus),
 								shortenStatus(dataStatus))
 						} else if dataStatus != "" {
 							migrationStatus = shortenStatus(dataStatus)

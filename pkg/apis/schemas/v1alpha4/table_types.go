@@ -41,9 +41,9 @@ type TableSpec struct {
 	Name     string   `json:"name" yaml:"name"`
 	Requires []string `json:"requires,omitempty" yaml:"requires,omitempty"`
 
-	Schema         *TableSchema     `json:"schema,omitempty" yaml:"schema,omitempty"`
-	SeedData       *SeedData        `json:"seedData,omitempty" yaml:"seedData,omitempty"`
-	DataMigrations []DataMigration  `json:"dataMigrations,omitempty" yaml:"dataMigrations,omitempty"`
+	Schema         *TableSchema    `json:"schema,omitempty" yaml:"schema,omitempty"`
+	SeedData       *SeedData       `json:"seedData,omitempty" yaml:"seedData,omitempty"`
+	DataMigrations []DataMigration `json:"dataMigrations,omitempty" yaml:"dataMigrations,omitempty"`
 }
 
 // TableStatus defines the observed state of Table

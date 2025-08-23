@@ -212,7 +212,7 @@ func (m *MysqlDataMigrationPlanner) EstimateAffectedRows(tableName string, migra
 		if whereIdx != -1 {
 			whereClause := sql[whereIdx:]
 			estimateQuery := fmt.Sprintf("SELECT COUNT(*) FROM `%s` %s", tableName, whereClause)
-			
+
 			var count int64
 			err := m.connection.GetDB().QueryRowContext(context.Background(), estimateQuery).Scan(&count)
 			if err != nil {
@@ -240,25 +240,25 @@ func (m *MysqlDataMigrationPlanner) GetDatabaseSpecificSQL(genericSQL string) (s
 	sql := genericSQL
 
 	// Replace PostgreSQL-specific syntax with MySQL equivalents
-	sql = strings.ReplaceAll(sql, "||", "CONCAT(")  // PostgreSQL concatenation to MySQL
-	
+	sql = strings.ReplaceAll(sql, "||", "CONCAT(") // PostgreSQL concatenation to MySQL
+
 	// Handle PostgreSQL timestamp functions
 	sql = strings.ReplaceAll(sql, "NOW()", "NOW()")
 	sql = strings.ReplaceAll(sql, "CURRENT_DATE", "CURDATE()")
 	sql = strings.ReplaceAll(sql, "CURRENT_TIMESTAMP", "NOW()")
-	
+
 	// Handle PostgreSQL interval syntax - more comprehensive replacement
 	sql = strings.ReplaceAll(sql, "INTERVAL '30 days'", "INTERVAL 30 DAY")
 	sql = strings.ReplaceAll(sql, "INTERVAL '1 year'", "INTERVAL 1 YEAR")
 	sql = strings.ReplaceAll(sql, "INTERVAL '1 month'", "INTERVAL 1 MONTH")
-	
+
 	// Generic interval replacements
 	sql = strings.ReplaceAll(sql, "INTERVAL '", "INTERVAL ")
 	sql = strings.ReplaceAll(sql, "' days'", " DAY")
 	sql = strings.ReplaceAll(sql, "' YEAR", " YEAR")
 	sql = strings.ReplaceAll(sql, "' MONTH", " MONTH")
 	sql = strings.ReplaceAll(sql, "' DAY", " DAY")
-	
+
 	// MySQL uses backticks for identifiers instead of double quotes
 	sql = strings.ReplaceAll(sql, `"`, "`")
 
@@ -328,4 +328,4 @@ func (m *MysqlDataMigrationPlanner) addBatchingToSQL(sql string, batchSize int32
 	}
 
 	return sql
-} 
+}

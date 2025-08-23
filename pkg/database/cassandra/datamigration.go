@@ -142,7 +142,7 @@ func (c *CassandraDataMigrationPlanner) PlanSingleDataMigration(tableName string
 func (c *CassandraDataMigrationPlanner) ValidateCondition(condition schemasv1alpha4.DataMigrationCondition) (bool, error) {
 	// Cassandra has limited condition support due to NoSQL constraints
 	// Only support simple existence checks and basic comparisons
-	
+
 	cluster := gocql.NewCluster(c.hosts...)
 	cluster.Authenticator = gocql.PasswordAuthenticator{
 		Username: c.username,
@@ -295,8 +295,8 @@ func (c *CassandraDataMigrationPlanner) shouldExecuteMigration(migration *schema
 	for _, condition := range migration.Conditions {
 		result, err := c.ValidateCondition(condition)
 		if err != nil {
-			// Log warning but don't fail - Cassandra conditions are best-effort
-			return true, nil // Default to execute if condition evaluation fails
+			// Return the actual connection error instead of ignoring it
+			return false, errors.Wrapf(err, "failed to validate condition for migration %s", migration.Name)
 		}
 		if !result {
 			return false, nil
@@ -379,4 +379,4 @@ func convertToFloat64Cassandra(value interface{}) (float64, error) {
 	default:
 		return 0, errors.Errorf("unsupported value type for Cassandra: %T", value)
 	}
-} 
+}

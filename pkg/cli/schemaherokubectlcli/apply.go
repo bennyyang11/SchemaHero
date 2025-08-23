@@ -21,13 +21,13 @@ import (
 
 // ApplyResult holds the results of applying migrations
 type ApplyResult struct {
-	SourceFile     string
-	SchemaApplied  bool
-	DataApplied    bool
-	RowsAffected   int64
-	Duration       time.Duration
-	Warnings       []string
-	Errors         []string
+	SourceFile    string
+	SchemaApplied bool
+	DataApplied   bool
+	RowsAffected  int64
+	Duration      time.Duration
+	Warnings      []string
+	Errors        []string
 }
 
 // ProgressTracker tracks migration progress for CLI output
@@ -120,7 +120,7 @@ func ApplyCmd() *cobra.Command {
 
 	// Legacy DDL mode
 	cmd.Flags().String("ddl", "", "filename or directory name containing the rendered DDL commands to execute")
-	
+
 	// Enhanced spec mode
 	cmd.Flags().String("spec-file", "", "filename or directory name containing the spec(s) to apply")
 	cmd.Flags().Bool("seed-data", false, "when set, will deploy seed data")
@@ -289,7 +289,7 @@ func applySpec(db database.Database, spec types.Spec, dryRun, dataOnly, schemaOn
 
 		// Parse the spec to get TableSpec
 		var tableSpec *schemasv1alpha4.TableSpec
-		
+
 		// Try Kubernetes object format first
 		parsedK8sObject := schemasv1alpha4.Table{}
 		if err := yaml.Unmarshal(spec.Spec, &parsedK8sObject); err == nil {
@@ -444,7 +444,7 @@ func checkDestructiveOperations(spec *schemasv1alpha4.TableSpec) (bool, string) 
 
 	for _, migration := range spec.DataMigrations {
 		sql := strings.ToUpper(strings.TrimSpace(migration.SQL))
-		
+
 		// Check for potentially destructive operations
 		if strings.Contains(sql, "DROP TABLE") {
 			return true, "DROP TABLE operation detected"
@@ -459,19 +459,19 @@ func checkDestructiveOperations(spec *schemasv1alpha4.TableSpec) (bool, string) 
 			return true, "Mass UPDATE without WHERE clause detected"
 		}
 	}
-	
+
 	return false, ""
 }
 
 // promptForConfirmation prompts the user for confirmation
 func promptForConfirmation(message string) (bool, error) {
 	fmt.Printf("%s (y/N): ", message)
-	
+
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
 		return false, errors.New("failed to read input")
 	}
-	
+
 	response := strings.ToLower(strings.TrimSpace(scanner.Text()))
 	return response == "y" || response == "yes", nil
 }
@@ -518,11 +518,11 @@ func outputApplyResults(results []ApplyResult, verbose bool) error {
 	fmt.Printf("  Data migrations applied: %d\n", totalData)
 	fmt.Printf("  Total rows affected: %d\n", totalRows)
 	fmt.Printf("  Total execution time: %s\n", totalDuration)
-	
+
 	if totalWarnings > 0 {
 		fmt.Printf("  ⚠️  Warnings: %d\n", totalWarnings)
 	}
-	
+
 	if totalErrors > 0 {
 		fmt.Printf("  ❌ Errors: %d\n", totalErrors)
 		return fmt.Errorf("encountered %d errors during execution", totalErrors)

@@ -35,12 +35,19 @@ func TestCassandraDataMigrationPlanning(t *testing.T) {
 				Name: "update-status",
 				SQL:  "UPDATE users SET status = 'active' WHERE user_id = ?",
 				Type: schemasv1alpha4.DataMigrationTypeBackfill,
+				Conditions: []schemasv1alpha4.DataMigrationCondition{
+					{
+						Query:    "SELECT COUNT(*) FROM users WHERE status IS NULL",
+						Operator: ">",
+						Value:    0,
+					},
+				},
 			},
 		}
 
 		// This will fail due to connection, but test the planning logic
 		_, err := PlanCassandraDataMigrations([]string{"localhost"}, "user", "pass", "test", "users", migrations)
-		
+
 		// Should fail with connection error, not implementation error
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create Cassandra session")
@@ -98,7 +105,7 @@ func TestCassandraDataMigrationPlanning(t *testing.T) {
 		}
 
 		template := &schemasv1alpha4.DataMigrationTemplate{
-			Template: "UPDATE {{.keyspace}}.{{.table_name}} SET updated_at = {{.NOW}} WHERE id = ?",
+			Template: "UPDATE {{.KEYSPACE}}.{{.table_name}} SET updated_at = {{.NOW}} WHERE id = ?",
 		}
 
 		values := map[string]interface{}{
@@ -150,7 +157,7 @@ func TestCassandraDataMigrationPlanning(t *testing.T) {
 				SQL:  "UPDATE users SET status = 'active' WHERE user_id = ?",
 			},
 			{
-				Name: "valid-insert", 
+				Name: "valid-insert",
 				SQL:  "INSERT INTO logs (id, message) VALUES (?, ?)",
 			},
 		}
@@ -163,8 +170,8 @@ func TestCassandraDataMigrationPlanning(t *testing.T) {
 		}
 
 		invalidMigrations := []struct {
-			name string
-			sql  string
+			name  string
+			sql   string
 			error string
 		}{
 			{
@@ -195,7 +202,7 @@ func TestCassandraDataMigrationPlanning(t *testing.T) {
 					Name: tt.name,
 					SQL:  tt.sql,
 				}
-				
+
 				err := planner.validateCassandraMigration(&migration)
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.error)
@@ -223,7 +230,7 @@ func TestCassandraUtilityFunctions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("input_%v", tt.input), func(t *testing.T) {
 				result, err := convertToFloat64Cassandra(tt.input)
-				
+
 				if tt.hasError {
 					assert.Error(t, err)
 				} else {
@@ -253,7 +260,7 @@ func TestCassandraUtilityFunctions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%v_%s_%v", tt.actual, tt.operator, tt.expected), func(t *testing.T) {
 				result, err := compareNumericCassandra(tt.actual, tt.expected, tt.operator)
-				
+
 				if tt.hasError {
 					assert.Error(t, err)
 				} else {
@@ -302,7 +309,7 @@ func TestCassandraDataMigrationInterface(t *testing.T) {
 
 	t.Run("migration planning with empty list", func(t *testing.T) {
 		planner := &CassandraDataMigrationPlanner{}
-		
+
 		statements, err := planner.PlanDataMigrations("test_table", []schemasv1alpha4.DataMigration{})
 		require.NoError(t, err)
 		assert.Empty(t, statements)
@@ -332,10 +339,10 @@ func TestCassandraDataMigrationInterface(t *testing.T) {
 			t.Run(migration.Name, func(t *testing.T) {
 				assert.NotEmpty(t, migration.SQL)
 				assert.Contains(t, migration.SQL, "?") // Should use parameterized queries
-				
+
 				// Only UPDATE and DELETE require WHERE clauses, INSERT doesn't
-				if strings.Contains(strings.ToUpper(migration.SQL), "UPDATE") || 
-				   strings.Contains(strings.ToUpper(migration.SQL), "DELETE") {
+				if strings.Contains(strings.ToUpper(migration.SQL), "UPDATE") ||
+					strings.Contains(strings.ToUpper(migration.SQL), "DELETE") {
 					assert.Contains(t, migration.SQL, "WHERE") // Should have WHERE clause for safety
 				}
 			})
@@ -346,7 +353,7 @@ func TestCassandraDataMigrationInterface(t *testing.T) {
 		// Test that we're aware of Cassandra's limitations
 		limitations := []string{
 			"No JOINs",
-			"No subqueries", 
+			"No subqueries",
 			"No GROUP BY in updates",
 			"Primary key required for updates",
 			"Limited secondary index support",
@@ -359,4 +366,4 @@ func TestCassandraDataMigrationInterface(t *testing.T) {
 			})
 		}
 	})
-} 
+}

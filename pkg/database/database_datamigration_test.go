@@ -34,7 +34,7 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 		}
 
 		statements, err := db.PlanDataMigrations(spec)
-		
+
 		require.NoError(t, err)
 		assert.Empty(t, statements)
 	})
@@ -47,7 +47,7 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 		}
 
 		statements, err := db.PlanDataMigrations(spec)
-		
+
 		require.NoError(t, err)
 		assert.Empty(t, statements)
 	})
@@ -62,14 +62,14 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 
 		// All database drivers now have data migration support
 		allDrivers := []string{"postgres", "mysql", "cockroachdb", "timescaledb", "sqlite", "rqlite", "cassandra"}
-		
+
 		for _, driver := range allDrivers {
 			db := &Database{
 				Driver: driver,
 				URI:    "mock://connection", // Will fail connection but test routing
 			}
 			_, err := db.PlanDataMigrations(spec)
-			
+
 			// Should fail with connection error, not "not implemented" error
 			if err != nil {
 				assert.NotContains(t, err.Error(), "not yet implemented", "driver %s should be implemented", driver)
@@ -98,17 +98,17 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 			{"rqlite", "distributed SQLite"},
 			{"cassandra", "limited CQL support"},
 		}
-		
+
 		for _, item := range supportedDrivers {
 			t.Run(item.driver, func(t *testing.T) {
 				db := &Database{
 					Driver: item.driver,
 					URI:    "mock://connection", // This will fail connection but test routing
 				}
-				
+
 				// This will fail due to mock connection, but should route to correct implementation
 				_, err := db.PlanDataMigrations(spec)
-				
+
 				// Should fail with connection error, not "not implemented" error
 				if err != nil {
 					assert.NotContains(t, err.Error(), "not yet implemented")
@@ -128,7 +128,7 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 		}
 
 		_, err := db.PlanDataMigrations(spec)
-		
+
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown database driver")
 	})
@@ -137,10 +137,10 @@ func TestDatabaseDataMigrationPlanning(t *testing.T) {
 func TestCompleteTableSpecPlanning(t *testing.T) {
 	t.Run("table with both schema and data migrations", func(t *testing.T) {
 		db := &Database{
-			Driver: "postgres", 
+			Driver: "postgres",
 			URI:    "mock://connection",
 		}
-		
+
 		spec := &schemasv1alpha4.TableSpec{
 			Name: "users",
 			Schema: &schemasv1alpha4.TableSchema{
@@ -161,11 +161,11 @@ func TestCompleteTableSpecPlanning(t *testing.T) {
 
 		// This will fail due to mock connection, but should route correctly
 		ddl, dml, err := db.PlanCompleteTableSpec(spec)
-		
+
 		// Should fail with connection error from DDL planning
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to plan schema changes")
-		
+
 		// But the structure should be correct
 		assert.Nil(t, ddl)
 		assert.Nil(t, dml)
@@ -174,9 +174,9 @@ func TestCompleteTableSpecPlanning(t *testing.T) {
 	t.Run("table with schema only", func(t *testing.T) {
 		db := &Database{
 			Driver: "postgres",
-			URI:    "mock://connection", 
+			URI:    "mock://connection",
 		}
-		
+
 		spec := &schemasv1alpha4.TableSpec{
 			Name: "users",
 			Schema: &schemasv1alpha4.TableSchema{
@@ -199,7 +199,7 @@ func TestCompleteTableSpecPlanning(t *testing.T) {
 			Driver: "postgres",
 			URI:    "mock://connection", // This will cause connection error
 		}
-		
+
 		spec := &schemasv1alpha4.TableSpec{
 			Name: "users",
 			// No Schema
@@ -209,7 +209,7 @@ func TestCompleteTableSpecPlanning(t *testing.T) {
 		}
 
 		ddl, dml, err := db.PlanCompleteTableSpec(spec)
-		
+
 		// This should fail because data migrations require database connection
 		// but DDL planning succeeds (no schema means no DDL)
 		assert.Error(t, err)
@@ -229,17 +229,17 @@ func TestDatabaseDriverRouting(t *testing.T) {
 		}
 
 		testCases := []struct {
-			driver   string
+			driver          string
 			shouldImplement bool
 			expectedError   string
 		}{
 			{"postgres", true, ""},
 			{"mysql", true, ""},
 			{"cockroachdb", true, ""}, // Uses postgres
-			{"timescaledb", true, ""},  // Uses postgres
-			{"sqlite", true, ""},       // Implemented in Phase 5
-			{"rqlite", true, ""},       // Implemented in Phase 5
-			{"cassandra", true, ""},    // Implemented in Phase 5 (limited)
+			{"timescaledb", true, ""}, // Uses postgres
+			{"sqlite", true, ""},      // Implemented in Phase 5
+			{"rqlite", true, ""},      // Implemented in Phase 5
+			{"cassandra", true, ""},   // Implemented in Phase 5 (limited)
 			{"unknown", false, "unknown database driver"},
 		}
 
@@ -266,4 +266,4 @@ func TestDatabaseDriverRouting(t *testing.T) {
 			})
 		}
 	})
-} 
+}

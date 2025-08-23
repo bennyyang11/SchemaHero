@@ -82,7 +82,7 @@ func (m *MockDataMigrationExecutor) getMigrationSQL(migration *schemasv1alpha4.D
 func TestMigrationExecutor(t *testing.T) {
 	t.Run("execute single migration", func(t *testing.T) {
 		logger := &MockLogger{}
-		
+
 		migration := &schemasv1alpha4.DataMigration{
 			Name: "test-migration",
 			SQL:  "UPDATE users SET status = 'active'",
@@ -113,7 +113,7 @@ func TestMigrationExecutor(t *testing.T) {
 
 		executor := &MigrationExecutor{}
 		sql, err := executor.getMigrationSQL("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "UPDATE users")
 		assert.Contains(t, sql, "'active'")
@@ -160,12 +160,12 @@ func TestMigrationExecutor(t *testing.T) {
 
 		// Test that timeout context is created
 		ctx := context.Background()
-		
+
 		// Create a context with the timeout
 		if migration.Timeout != nil && migration.Timeout.Duration > 0 {
 			timeoutCtx, cancel := context.WithTimeout(ctx, migration.Timeout.Duration)
 			defer cancel()
-			
+
 			// Verify the context has a deadline
 			deadline, hasDeadline := timeoutCtx.Deadline()
 			assert.True(t, hasDeadline)
@@ -183,7 +183,7 @@ func TestMigrationExecutor(t *testing.T) {
 		// Test dependency resolution
 		resolver := schemasv1alpha4.NewDependencyResolver(migrations)
 		ordered, err := resolver.ResolveExecutionOrder()
-		
+
 		require.NoError(t, err)
 		require.Len(t, ordered, 3)
 		assert.Equal(t, "first", ordered[0].Name)
@@ -200,15 +200,15 @@ func TestMigrationExecutor(t *testing.T) {
 		}
 
 		executor := &MigrationExecutor{logger: &MockLogger{}}
-		
+
 		// Test rollback SQL generation
 		assert.True(t, migration.Reversible)
 		assert.NotEmpty(t, migration.ReverseSQL)
-		
+
 		// Test that rollback can be attempted
 		ctx := context.Background()
 		err := executor.attemptRollback(ctx, "users", migration)
-		
+
 		// This will fail due to no real connection, but structure should be correct
 		assert.Error(t, err)
 		assert.NotContains(t, err.Error(), "not reversible")
@@ -226,7 +226,7 @@ func TestPostgresDataMigrationExecutor(t *testing.T) {
 		if migration.SQL != "" {
 			assert.Equal(t, "UPDATE users SET status = 'active'", migration.SQL)
 		}
-		
+
 		// Test that migration has required fields for execution
 		assert.NotEmpty(t, migration.Name)
 		assert.NotEmpty(t, migration.SQL)
@@ -243,13 +243,13 @@ func TestPostgresDataMigrationExecutor(t *testing.T) {
 		// Test batch configuration
 		assert.Greater(t, migration.BatchSize, int32(0))
 		assert.GreaterOrEqual(t, migration.BatchDelayMs, int32(0))
-		
+
 		// Test SQL modification for batching
 		sql := migration.SQL
 		if !strings.Contains(strings.ToUpper(sql), "LIMIT") {
 			sql = fmt.Sprintf("%s LIMIT %d", sql, migration.BatchSize)
 		}
-		
+
 		expectedSQL := "UPDATE users SET processed = true LIMIT 1000"
 		assert.Equal(t, expectedSQL, sql)
 	})
@@ -266,12 +266,12 @@ func TestPostgresDataMigrationExecutor(t *testing.T) {
 				Operator: "EXISTS",
 			},
 		}
-		
+
 		// Test condition structure validation
 		for _, condition := range conditions {
 			assert.NotEmpty(t, condition.Query)
 			assert.NotEmpty(t, condition.Operator)
-			
+
 			switch condition.Operator {
 			case "EXISTS", "NOT EXISTS":
 				// Value should be ignored
@@ -289,7 +289,7 @@ func TestMysqlDataMigrationExecutor(t *testing.T) {
 			Name: "mysql-test",
 			SQL:  "UPDATE users SET email = LOWER(email)",
 		}
-		
+
 		// Test SQL generation logic
 		if migration.SQL != "" {
 			assert.Equal(t, "UPDATE users SET email = LOWER(email)", migration.SQL)
@@ -300,7 +300,7 @@ func TestMysqlDataMigrationExecutor(t *testing.T) {
 		// Test MySQL-specific batching logic
 		batchSize := int32(2000)
 		sql := "UPDATE products SET price = price * 1.1"
-		
+
 		// Verify MySQL LIMIT syntax would be added
 		expectedBatchSQL := fmt.Sprintf("%s LIMIT %d", sql, batchSize)
 		assert.Contains(t, expectedBatchSQL, "LIMIT 2000")
@@ -327,12 +327,12 @@ func TestExecutionStages(t *testing.T) {
 
 	t.Run("progress info structure", func(t *testing.T) {
 		progress := ProgressInfo{
-			Stage:           StageExecuting,
-			CurrentBatch:    3,
-			TotalBatches:    10,
-			RowsProcessed:   15000,
-			TotalRows:       50000,
-			ElapsedTime:     time.Minute * 2,
+			Stage:             StageExecuting,
+			CurrentBatch:      3,
+			TotalBatches:      10,
+			RowsProcessed:     15000,
+			TotalRows:         50000,
+			ElapsedTime:       time.Minute * 2,
 			EstimatedTimeLeft: time.Minute * 5,
 		}
 
@@ -352,7 +352,7 @@ func TestErrorHandlingAndRollback(t *testing.T) {
 		}
 
 		executor := &MigrationExecutor{logger: &MockLogger{}}
-		
+
 		err := executor.attemptRollback(context.Background(), "users", migration)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not reversible")
@@ -367,7 +367,7 @@ func TestErrorHandlingAndRollback(t *testing.T) {
 		}
 
 		executor := &MigrationExecutor{logger: &MockLogger{}}
-		
+
 		err := executor.attemptRollback(context.Background(), "users", migration)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not reversible")
@@ -398,7 +398,7 @@ func TestBatchProcessingLogic(t *testing.T) {
 		// Test batch configuration
 		assert.Greater(t, migration.BatchSize, int32(0))
 		assert.GreaterOrEqual(t, migration.BatchDelayMs, int32(0))
-		
+
 		// Test batch delay conversion
 		delay := time.Duration(migration.BatchDelayMs) * time.Millisecond
 		assert.Equal(t, time.Millisecond*200, delay)
@@ -438,7 +438,7 @@ func TestBatchProcessingLogic(t *testing.T) {
 				if !strings.Contains(strings.ToUpper(sql), "LIMIT") {
 					sql = fmt.Sprintf("%s LIMIT %d", sql, tc.batchSize)
 				}
-				
+
 				assert.Equal(t, tc.expectedSQL, sql)
 			})
 		}
@@ -455,12 +455,12 @@ func TestTimeoutAndCancellation(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		
+
 		// Test timeout context creation
 		if migration.Timeout != nil && migration.Timeout.Duration > 0 {
 			timeoutCtx, cancel := context.WithTimeout(ctx, migration.Timeout.Duration)
 			defer cancel()
-			
+
 			deadline, hasDeadline := timeoutCtx.Deadline()
 			assert.True(t, hasDeadline)
 			assert.True(t, deadline.After(time.Now()))
@@ -470,10 +470,10 @@ func TestTimeoutAndCancellation(t *testing.T) {
 
 	t.Run("cancellation handling", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		// Test immediate cancellation
 		cancel()
-		
+
 		select {
 		case <-ctx.Done():
 			assert.Equal(t, context.Canceled, ctx.Err())
@@ -486,7 +486,7 @@ func TestTimeoutAndCancellation(t *testing.T) {
 func TestExecutorCreation(t *testing.T) {
 	t.Run("supported drivers", func(t *testing.T) {
 		supportedDrivers := []string{"postgres", "mysql", "cockroachdb", "timescaledb"}
-		
+
 		for _, driver := range supportedDrivers {
 			executor := NewMigrationExecutor(driver, "mock://uri", nil, &MockLogger{})
 			assert.Equal(t, driver, executor.driver)
@@ -496,15 +496,15 @@ func TestExecutorCreation(t *testing.T) {
 	t.Run("progress callback and logger", func(t *testing.T) {
 		logger := &MockLogger{}
 		var progressReports []ProgressInfo
-		
+
 		progressCallback := func(migrationName string, progress ProgressInfo) {
 			progressReports = append(progressReports, progress)
 		}
 
 		executor := NewMigrationExecutor("postgres", "mock://uri", progressCallback, logger)
-		
+
 		assert.Equal(t, "postgres", executor.driver)
 		assert.NotNil(t, executor.progressCallback)
 		assert.NotNil(t, executor.logger)
 	})
-} 
+}

@@ -19,11 +19,11 @@ import (
 
 // PlanResult holds the planning results for better formatting
 type PlanResult struct {
-	SourceFile     string
-	DDLStatements  []string
-	DMLStatements  []string
-	EstimatedRows  int64
-	EstimatedTime  time.Duration
+	SourceFile        string
+	DDLStatements     []string
+	DMLStatements     []string
+	EstimatedRows     int64
+	EstimatedTime     time.Duration
 	HasDataMigrations bool
 }
 
@@ -225,7 +225,7 @@ func planSpecWithEnhancements(db *database.Database, spec types.Spec, dryRun, da
 	if result.HasDataMigrations && !schemaOnly {
 		// Parse the spec to get TableSpec
 		var tableSpec *schemasv1alpha4.TableSpec
-		
+
 		// Try Kubernetes object format first
 		parsedK8sObject := schemasv1alpha4.Table{}
 		if err := yaml.Unmarshal(spec.Spec, &parsedK8sObject); err == nil {
@@ -276,7 +276,11 @@ func specHasDataMigrations(specContents []byte) (bool, error) {
 	// Try to parse as Kubernetes object first
 	parsedK8sObject := schemasv1alpha4.Table{}
 	if err := yaml.Unmarshal(specContents, &parsedK8sObject); err == nil {
-		return len(parsedK8sObject.Spec.DataMigrations) > 0, nil
+		// Check if we actually got meaningful K8s object data (has database and name populated)
+		if parsedK8sObject.Spec.Database != "" && parsedK8sObject.Spec.Name != "" {
+			return len(parsedK8sObject.Spec.DataMigrations) > 0, nil
+		}
+		// If database and name are empty, this is likely a plain spec format
 	}
 
 	// Try to parse as plain TableSpec
@@ -296,7 +300,18 @@ func estimateMigrationMetrics(db *database.Database, specContents []byte, dmlSta
 	// Try Kubernetes object format first
 	parsedK8sObject := schemasv1alpha4.Table{}
 	if err := yaml.Unmarshal(specContents, &parsedK8sObject); err == nil {
-		dataMigrations = parsedK8sObject.Spec.DataMigrations
+		// Check if we actually got meaningful K8s object data (has database and name populated)
+		if parsedK8sObject.Spec.Database != "" && parsedK8sObject.Spec.Name != "" {
+			dataMigrations = parsedK8sObject.Spec.DataMigrations
+		} else {
+			// If database and name are empty, this is likely a plain spec format
+			// Try plain spec format
+			plainSpec := schemasv1alpha4.TableSpec{}
+			if err := yaml.Unmarshal(specContents, &plainSpec); err != nil {
+				return 0, 0, errors.Wrap(err, "failed to unmarshal spec for metrics")
+			}
+			dataMigrations = plainSpec.DataMigrations
+		}
 	} else {
 		// Try plain spec format
 		plainSpec := schemasv1alpha4.TableSpec{}

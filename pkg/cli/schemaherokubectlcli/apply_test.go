@@ -30,7 +30,7 @@ import (
 func TestApplyCommand(t *testing.T) {
 	t.Run("enhanced apply command creation", func(t *testing.T) {
 		cmd := ApplyCmd()
-		
+
 		assert.Equal(t, "apply", cmd.Use)
 		assert.Contains(t, cmd.Short, "apply a spec to a database")
 		assert.Contains(t, cmd.Long, "Execute DDL and DML statements")
@@ -150,13 +150,13 @@ func TestCheckDestructiveOperations(t *testing.T) {
 func TestApplyResult(t *testing.T) {
 	t.Run("apply result structure", func(t *testing.T) {
 		result := ApplyResult{
-			SourceFile:     "test.yaml",
-			SchemaApplied:  true,
-			DataApplied:    true,
-			RowsAffected:   1500,
-			Duration:       time.Second * 5,
-			Warnings:       []string{"warning1", "warning2"},
-			Errors:         []string{},
+			SourceFile:    "test.yaml",
+			SchemaApplied: true,
+			DataApplied:   true,
+			RowsAffected:  1500,
+			Duration:      time.Second * 5,
+			Warnings:      []string{"warning1", "warning2"},
+			Errors:        []string{},
 		}
 
 		assert.Equal(t, "test.yaml", result.SourceFile)
@@ -170,7 +170,7 @@ func TestApplyResult(t *testing.T) {
 
 	t.Run("empty apply result", func(t *testing.T) {
 		result := ApplyResult{}
-		
+
 		assert.Empty(t, result.SourceFile)
 		assert.False(t, result.SchemaApplied)
 		assert.False(t, result.DataApplied)
@@ -311,16 +311,16 @@ func TestApplyCommandValidation(t *testing.T) {
 	t.Run("command line validation logic", func(t *testing.T) {
 		// Test the validation logic by examining the command structure
 		cmd := ApplyCmd()
-		
+
 		// The command should accept either --ddl or --spec-file but not both
 		flags := cmd.Flags()
-		
+
 		// DDL mode flags
 		ddlFlag := flags.Lookup("ddl")
 		assert.NotNil(t, ddlFlag)
 		assert.Equal(t, "", ddlFlag.DefValue)
 
-		// Spec mode flags  
+		// Spec mode flags
 		specFileFlag := flags.Lookup("spec-file")
 		assert.NotNil(t, specFileFlag)
 		assert.Equal(t, "", specFileFlag.DefValue)
@@ -413,10 +413,10 @@ func TestApplyModeSelection(t *testing.T) {
 		// Verify mutually exclusive flags exist
 		dataOnlyFlag := flags.Lookup("data-migrations-only")
 		schemaOnlyFlag := flags.Lookup("schema-only")
-		
+
 		assert.NotNil(t, dataOnlyFlag)
 		assert.NotNil(t, schemaOnlyFlag)
-		
+
 		// Both should default to false
 		assert.Equal(t, "false", dataOnlyFlag.DefValue)
 		assert.Equal(t, "false", schemaOnlyFlag.DefValue)
@@ -426,7 +426,7 @@ func TestApplyModeSelection(t *testing.T) {
 func TestApplySpecModeFeatures(t *testing.T) {
 	t.Run("spec mode features", func(t *testing.T) {
 		// Test the structures and functions that would be used in spec mode
-		
+
 		// ApplyResult tracking
 		result := ApplyResult{
 			SourceFile:    "test.yaml",
@@ -434,7 +434,7 @@ func TestApplySpecModeFeatures(t *testing.T) {
 			DataApplied:   true,
 			Duration:      time.Minute,
 		}
-		
+
 		assert.True(t, result.SchemaApplied)
 		assert.True(t, result.DataApplied)
 		assert.Equal(t, time.Minute, result.Duration)
@@ -446,9 +446,9 @@ func TestApplySpecModeFeatures(t *testing.T) {
 			totalRows:        10000,
 			processedRows:    5000,
 		}
-		
+
 		assert.Equal(t, "data-migration-1", tracker.currentMigration)
 		assert.Equal(t, int64(10000), tracker.totalRows)
 		assert.Equal(t, int64(5000), tracker.processedRows)
 	})
-} 
+}

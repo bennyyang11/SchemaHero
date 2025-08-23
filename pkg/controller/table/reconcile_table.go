@@ -254,7 +254,7 @@ func (r *ReconcileTable) plan(ctx context.Context, databaseInstance *databasesv1
 	// Schema-then-data execution ordering: Combine schema and seed for DDL
 	allSchemaStatements := append(schemaStatements, seedStatements...)
 	generatedDDL := strings.Join(allSchemaStatements, ";\n")
-	
+
 	// Data migrations are separate (DML)
 	generatedDML := strings.Join(dataStatements, ";\n")
 
@@ -321,7 +321,7 @@ func getInitialDataMigrationStatus(dataStatements []string) schemasv1alpha4.Data
 	if len(dataStatements) == 0 {
 		return "" // No data migrations
 	}
-	
+
 	// Check if data statements are just comments (skipped migrations)
 	hasActualStatements := false
 	for _, stmt := range dataStatements {
@@ -331,10 +331,10 @@ func getInitialDataMigrationStatus(dataStatements []string) schemasv1alpha4.Data
 			break
 		}
 	}
-	
+
 	if !hasActualStatements {
 		return schemasv1alpha4.DataMigrationSkipped
 	}
-	
+
 	return schemasv1alpha4.DataMigrationPending
 }

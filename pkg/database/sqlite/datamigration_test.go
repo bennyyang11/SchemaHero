@@ -38,8 +38,8 @@ func TestSqliteDataMigrationPlanning(t *testing.T) {
 		}
 
 		// This will fail due to connection, but test the planning logic
-		_, err := PlanSqliteDataMigrations("invalid://test", "users", migrations)
-		
+		_, err := PlanSqliteDataMigrations("/invalid/path/to/nonexistent.db", "users", migrations)
+
 		// Should fail with connection error, not implementation error
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to connect")
@@ -163,7 +163,7 @@ func TestSqliteDataMigrationPlanning(t *testing.T) {
 
 		// This will fail due to connection, but test dependency resolution
 		_, err := PlanSqliteDataMigrations("invalid://test", "users", migrations)
-		
+
 		// Should fail with connection error, not dependency error
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to connect")
@@ -189,7 +189,7 @@ func TestSqliteUtilityFunctions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("input_%v", tt.input), func(t *testing.T) {
 				result, err := convertToFloat64(tt.input)
-				
+
 				if tt.hasError {
 					assert.Error(t, err)
 				} else {
@@ -224,7 +224,7 @@ func TestSqliteUtilityFunctions(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(fmt.Sprintf("%v_%s_%v", tt.actual, tt.operator, tt.expected), func(t *testing.T) {
 				result, err := compareNumeric(tt.actual, tt.expected, tt.operator)
-				
+
 				if tt.hasError {
 					assert.Error(t, err)
 				} else {
@@ -289,7 +289,7 @@ func TestSqliteDataMigrationInterface(t *testing.T) {
 
 	t.Run("migration planning with empty list", func(t *testing.T) {
 		planner := &SqliteDataMigrationPlanner{}
-		
+
 		statements, err := planner.PlanDataMigrations("test_table", []schemasv1alpha4.DataMigration{})
 		require.NoError(t, err)
 		assert.Empty(t, statements)
@@ -317,4 +317,4 @@ func TestSqliteDataMigrationInterface(t *testing.T) {
 			})
 		}
 	})
-} 
+}

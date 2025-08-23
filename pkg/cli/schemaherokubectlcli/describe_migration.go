@@ -108,18 +108,18 @@ func DescribeMigrationCmd() *cobra.Command {
 				// Enhanced data migration status reporting
 				if foundMigration.Status.SchemaMigrationStatus != "" || foundMigration.Status.DataMigrationStatus != "" {
 					fmt.Printf("\n--- Migration Phase Status ---\n")
-					
+
 					if foundMigration.Spec.GeneratedDDL != "" {
 						fmt.Printf("Schema Migration Status: %s\n", foundMigration.Status.SchemaMigrationStatus)
 					}
-					
+
 					if foundMigration.Spec.GeneratedDML != "" {
 						fmt.Printf("Data Migration Status: %s\n", foundMigration.Status.DataMigrationStatus)
-						
+
 						if foundMigration.Status.EstimatedDataRows > 0 {
 							fmt.Printf("Estimated Rows Affected: %d\n", foundMigration.Status.EstimatedDataRows)
 						}
-						
+
 						if foundMigration.Status.EstimatedDuration != "" {
 							fmt.Printf("Estimated Duration: %s\n", foundMigration.Status.EstimatedDuration)
 						}
@@ -131,7 +131,7 @@ func DescribeMigrationCmd() *cobra.Command {
 					foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationFailed {
 					fmt.Printf("\n--- Error Information ---\n")
 					fmt.Printf("⚠️  One or more migration phases failed. Check logs for details.\n")
-					
+
 					if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationFailed {
 						fmt.Printf("❌ Schema migration failed\n")
 					}
@@ -145,7 +145,7 @@ func DescribeMigrationCmd() *cobra.Command {
 					foundMigration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationRunning {
 					fmt.Printf("\n--- Progress Information ---\n")
 					fmt.Printf("🚀 Migration is currently running...\n")
-					
+
 					if foundMigration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationRunning {
 						fmt.Printf("📊 Schema changes are being applied\n")
 					}

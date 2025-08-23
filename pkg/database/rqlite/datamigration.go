@@ -132,12 +132,12 @@ func (r *RqliteDataMigrationPlanner) PlanSingleDataMigration(tableName string, m
 func (r *RqliteDataMigrationPlanner) ValidateCondition(condition schemasv1alpha4.DataMigrationCondition) (bool, error) {
 	// Simplified implementation for RQLite - return true for basic conditions
 	// In a full implementation, this would use gorqlite.Connection methods
-	
+
 	// For now, just validate the basic structure and return true
 	if condition.Query == "" {
 		return false, errors.New("condition query cannot be empty")
 	}
-	
+
 	// Basic operator validation
 	validOperators := []string{">", "<", ">=", "<=", "=", "==", "!=", "EXISTS", "NOT EXISTS"}
 	isValidOperator := false
@@ -147,16 +147,16 @@ func (r *RqliteDataMigrationPlanner) ValidateCondition(condition schemasv1alpha4
 			break
 		}
 	}
-	
+
 	if !isValidOperator {
 		return false, errors.Errorf("unsupported operator: %s", condition.Operator)
 	}
-	
+
 	// For EXISTS/NOT EXISTS, return true (optimistic execution)
 	if condition.Operator == "EXISTS" || condition.Operator == "NOT EXISTS" {
 		return true, nil
 	}
-	
+
 	// For numeric comparisons, assume condition is met (optimistic execution)
 	// In a real implementation, this would execute the query against RQLite
 	return true, nil
@@ -177,7 +177,7 @@ func (r *RqliteDataMigrationPlanner) EstimateAffectedRows(tableName string, migr
 	// For RQLite, use conservative estimates since COUNT(*) operations
 	// can be expensive in distributed systems
 	upperSQL := strings.ToUpper(strings.TrimSpace(sql))
-	
+
 	if strings.HasPrefix(upperSQL, "UPDATE") {
 		return 100, nil // Conservative estimate for updates
 	} else if strings.HasPrefix(upperSQL, "DELETE") {
@@ -335,4 +335,4 @@ func extractTableNameFromDelete(sql string) string {
 	}
 
 	return "unknown_table"
-} 
+}

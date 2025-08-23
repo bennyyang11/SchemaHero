@@ -20,20 +20,20 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	schemasv1alpha4 "github.com/schemahero/schemahero/pkg/apis/schemas/v1alpha4"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStatusCommands(t *testing.T) {
 	t.Run("describe command creation", func(t *testing.T) {
 		cmd := DescribeCmd()
-		
+
 		assert.Equal(t, "describe", cmd.Use)
-		
+
 		// Verify it has subcommands
 		subcommands := cmd.Commands()
 		assert.Greater(t, len(subcommands), 0)
-		
+
 		// Verify migration subcommand exists
 		found := false
 		for _, subcmd := range subcommands {
@@ -47,9 +47,9 @@ func TestStatusCommands(t *testing.T) {
 
 	t.Run("get migrations command creation", func(t *testing.T) {
 		cmd := GetMigrationsCmd()
-		
+
 		assert.Equal(t, "migrations", cmd.Use)
-		
+
 		flags := cmd.Flags()
 		assert.NotNil(t, flags.Lookup("database"))
 		assert.NotNil(t, flags.Lookup("all-namespaces"))
@@ -133,7 +133,7 @@ func TestDataMigrationStatusDisplay(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				// Simulate the logic from get_migrations.go
 				migrationType := "DDL"
-				
+
 				if tt.generatedDML != "" {
 					if tt.generatedDDL != "" {
 						migrationType = "DDL+DML"
@@ -149,10 +149,10 @@ func TestDataMigrationStatusDisplay(t *testing.T) {
 
 	t.Run("migration status formatting", func(t *testing.T) {
 		tests := []struct {
-			name             string
-			schemaStatus     schemasv1alpha4.DataMigrationStatus
-			dataStatus       schemasv1alpha4.DataMigrationStatus
-			expectedStatus   string
+			name           string
+			schemaStatus   schemasv1alpha4.DataMigrationStatus
+			dataStatus     schemasv1alpha4.DataMigrationStatus
+			expectedStatus string
 		}{
 			{
 				name:           "both phases pending",
@@ -176,15 +176,15 @@ func TestDataMigrationStatusDisplay(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				// Simulate the logic from get_migrations.go  
+				// Simulate the logic from get_migrations.go
 				var migrationStatus string
-				
+
 				if tt.dataStatus != "" {
 					schemaStatusStr := string(tt.schemaStatus)
 					dataStatusStr := string(tt.dataStatus)
 					if schemaStatusStr != "" && dataStatusStr != "" {
-						migrationStatus = fmt.Sprintf("S:%s D:%s", 
-							shortenStatus(schemaStatusStr), 
+						migrationStatus = fmt.Sprintf("S:%s D:%s",
+							shortenStatus(schemaStatusStr),
 							shortenStatus(dataStatusStr))
 					} else if dataStatusStr != "" {
 						migrationStatus = shortenStatus(dataStatusStr)
@@ -206,18 +206,18 @@ func TestDescribeEnhancements(t *testing.T) {
 				GeneratedDML: "UPDATE users SET status = 'active' WHERE status IS NULL",
 			},
 			Status: schemasv1alpha4.MigrationStatus{
-				Phase:                   schemasv1alpha4.Approved,
-				SchemaMigrationStatus:   schemasv1alpha4.DataMigrationCompleted,
-				DataMigrationStatus:     schemasv1alpha4.DataMigrationRunning,
-				EstimatedDataRows:       1500,
-				EstimatedDuration:       "2m30s",
+				Phase:                 schemasv1alpha4.Approved,
+				SchemaMigrationStatus: schemasv1alpha4.DataMigrationCompleted,
+				DataMigrationStatus:   schemasv1alpha4.DataMigrationRunning,
+				EstimatedDataRows:     1500,
+				EstimatedDuration:     "2m30s",
 			},
 		}
 
 		// Verify the migration has both DDL and DML
 		assert.NotEmpty(t, migration.Spec.GeneratedDDL)
 		assert.NotEmpty(t, migration.Spec.GeneratedDML)
-		
+
 		// Verify status fields are available
 		assert.Equal(t, schemasv1alpha4.DataMigrationCompleted, migration.Status.SchemaMigrationStatus)
 		assert.Equal(t, schemasv1alpha4.DataMigrationRunning, migration.Status.DataMigrationStatus)
@@ -236,7 +236,7 @@ func TestDescribeEnhancements(t *testing.T) {
 		// Test error detection logic
 		hasSchemaError := migration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationFailed
 		hasDataError := migration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationFailed
-		
+
 		assert.True(t, hasSchemaError)
 		assert.False(t, hasDataError)
 	})
@@ -253,9 +253,9 @@ func TestDescribeEnhancements(t *testing.T) {
 		// Test progress detection logic
 		schemaRunning := migration.Status.SchemaMigrationStatus == schemasv1alpha4.DataMigrationRunning
 		dataRunning := migration.Status.DataMigrationStatus == schemasv1alpha4.DataMigrationRunning
-		
+
 		assert.False(t, schemaRunning)
 		assert.True(t, dataRunning)
 		assert.Greater(t, migration.Status.EstimatedDataRows, int64(0))
 	})
-} 
+}

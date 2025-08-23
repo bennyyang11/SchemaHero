@@ -280,4 +280,4 @@ func TestDataMigrationDeepCopy(t *testing.T) {
 		assert.Equal(t, int64(0), original.Conditions[0].Value)
 		assert.Equal(t, "previous-migration", original.DependsOn[0])
 	})
-} 
+}

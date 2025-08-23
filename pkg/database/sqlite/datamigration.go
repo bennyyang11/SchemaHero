@@ -131,7 +131,7 @@ func (s *SqliteDataMigrationPlanner) PlanSingleDataMigration(tableName string, m
 // ValidateCondition validates a condition against the SQLite database
 func (s *SqliteDataMigrationPlanner) ValidateCondition(condition schemasv1alpha4.DataMigrationCondition) (bool, error) {
 	db := s.connection.db
-	
+
 	// Execute the condition query
 	rows, err := db.Query(condition.Query)
 	if err != nil {
@@ -396,4 +396,4 @@ func extractTableNameFromDelete(sql string) string {
 	}
 
 	return "unknown_table"
-} 
+}

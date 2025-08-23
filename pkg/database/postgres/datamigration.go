@@ -206,9 +206,9 @@ func (p *PostgresDataMigrationPlanner) EstimateAffectedRows(tableName string, mi
 		whereIdx := strings.Index(strings.ToUpper(sql), "WHERE")
 		if whereIdx != -1 {
 			whereClause := sql[whereIdx:]
-			estimateQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s", 
+			estimateQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s %s",
 				pgx.Identifier{tableName}.Sanitize(), whereClause)
-			
+
 			var count int64
 			err := p.connection.conn.QueryRow(context.Background(), estimateQuery).Scan(&count)
 			if err != nil {
@@ -236,10 +236,10 @@ func (p *PostgresDataMigrationPlanner) GetDatabaseSpecificSQL(genericSQL string)
 	sql := genericSQL
 
 	// Replace common MySQL/SQL Server syntax with PostgreSQL equivalents
-	sql = strings.ReplaceAll(sql, "CONCAT(", "CONCAT(")  // PostgreSQL supports CONCAT
+	sql = strings.ReplaceAll(sql, "CONCAT(", "CONCAT(") // PostgreSQL supports CONCAT
 	sql = strings.ReplaceAll(sql, "||", "||")           // PostgreSQL supports || concatenation
 	sql = strings.ReplaceAll(sql, "LIMIT ", "LIMIT ")   // PostgreSQL supports LIMIT
-	
+
 	// Add PostgreSQL-specific optimizations
 	if strings.Contains(strings.ToUpper(sql), "UPDATE") && !strings.Contains(strings.ToUpper(sql), "RETURNING") {
 		// Optionally add RETURNING clause for better feedback
@@ -312,4 +312,4 @@ func (p *PostgresDataMigrationPlanner) addBatchingToSQL(sql string, batchSize in
 	}
 
 	return sql
-} 
+}

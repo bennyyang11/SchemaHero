@@ -39,7 +39,7 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 		// Mock the planner without database connection
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", &migrations[0])
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "UPDATE users SET status = 'active'")
 	})
@@ -75,7 +75,7 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 		// Mock the planner
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "UPDATE users SET")
 		assert.Contains(t, sql, "'test@example.com'")
@@ -84,12 +84,12 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 
 	t.Run("PostgreSQL-specific SQL adaptation", func(t *testing.T) {
 		planner := &PostgresDataMigrationPlanner{}
-		
+
 		// Test that PostgreSQL syntax is preserved
 		sql, err := planner.GetDatabaseSpecificSQL("UPDATE users SET name = first_name || ' ' || last_name")
 		require.NoError(t, err)
 		assert.Contains(t, sql, "||") // PostgreSQL concatenation should be preserved
-		
+
 		sql, err = planner.GetDatabaseSpecificSQL("SELECT * FROM users WHERE created_at > NOW()")
 		require.NoError(t, err)
 		assert.Contains(t, sql, "NOW()") // PostgreSQL function should be preserved
@@ -104,7 +104,7 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.PlanSingleDataMigration("users", migration)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "LIMIT 1000")
 	})
@@ -129,7 +129,7 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 
 		planner := &PostgresDataMigrationPlanner{}
 		statements, err := planner.PlanDataMigrations("users", migrations)
-		
+
 		require.NoError(t, err)
 		require.Len(t, statements, 9) // 3 migrations * 3 lines each (comment + description + sql)
 
@@ -163,12 +163,12 @@ func TestPostgresDataMigrationPlanning(t *testing.T) {
 		}
 
 		planner := &PostgresDataMigrationPlanner{}
-		
+
 		for _, migration := range migrations {
 			sql, err := planner.PlanSingleDataMigration("users", &migration)
 			require.NoError(t, err)
 			assert.NotEmpty(t, sql)
-			
+
 			// Each type should produce valid SQL
 			switch migration.Type {
 			case schemasv1alpha4.DataMigrationTypeBackfill:
@@ -195,7 +195,7 @@ func TestPostgresTemplateProcessing(t *testing.T) {
 
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Equal(t, "UPDATE users SET email = 'test@example.com'", sql)
 	})
@@ -207,7 +207,7 @@ func TestPostgresTemplateProcessing(t *testing.T) {
 
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "NOW()")
 		assert.Contains(t, sql, "CURRENT_DATE")
@@ -224,10 +224,10 @@ func TestPostgresTemplateProcessing(t *testing.T) {
 
 		planner := &PostgresDataMigrationPlanner{}
 		sql, err := planner.renderTemplate(template)
-		
+
 		require.NoError(t, err)
 		assert.Contains(t, sql, "active = true")
 		assert.Contains(t, sql, "score = 100")
 		assert.Contains(t, sql, "NOW()")
 	})
-} 
+}

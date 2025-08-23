@@ -29,21 +29,21 @@ import (
 
 // EnhancedDataMigrationValidator provides comprehensive validation for data migrations
 type EnhancedDataMigrationValidator struct {
-	allowedOperations   map[string]OperationSafety
-	dangerousPatterns   []*regexp.Regexp
-	requiredApprovals   map[string]bool
-	databaseType        string
-	resourceThresholds  ResourceThresholds
+	allowedOperations  map[string]OperationSafety
+	dangerousPatterns  []*regexp.Regexp
+	requiredApprovals  map[string]bool
+	databaseType       string
+	resourceThresholds ResourceThresholds
 }
 
 // OperationSafety defines the safety level of SQL operations
 type OperationSafety int
 
 const (
-	OperationSafe       OperationSafety = iota // Safe to execute automatically
-	OperationCaution                           // Requires validation but can proceed
-	OperationDangerous                         // Requires explicit approval
-	OperationForbidden                         // Never allowed in data migrations
+	OperationSafe      OperationSafety = iota // Safe to execute automatically
+	OperationCaution                          // Requires validation but can proceed
+	OperationDangerous                        // Requires explicit approval
+	OperationForbidden                        // Never allowed in data migrations
 )
 
 // ResourceThresholds defines limits for resource usage estimation
@@ -57,10 +57,10 @@ type ResourceThresholds struct {
 
 // ValidationResult contains the result of migration validation
 type ValidationResult struct {
-	IsValid      bool
-	Errors       []ValidationError
-	Warnings     []ValidationWarning
-	EstimatedRows int64
+	IsValid           bool
+	Errors            []ValidationError
+	Warnings          []ValidationWarning
+	EstimatedRows     int64
 	EstimatedDuration time.Duration
 	RequiresApproval  bool
 }
@@ -85,11 +85,11 @@ func NewEnhancedDataMigrationValidator(databaseType string) *EnhancedDataMigrati
 		databaseType: databaseType,
 		allowedOperations: map[string]OperationSafety{
 			// Safe operations
-			"SELECT":   OperationSafe,
-			"UPDATE":   OperationCaution, // Safe with WHERE clause
-			"INSERT":   OperationCaution, // Generally safe
-			
-			// Dangerous operations  
+			"SELECT": OperationSafe,
+			"UPDATE": OperationCaution, // Safe with WHERE clause
+			"INSERT": OperationCaution, // Generally safe
+
+			// Dangerous operations
 			"DELETE":   OperationDangerous, // Can lose data
 			"TRUNCATE": OperationForbidden, // Dangerous, use DELETE instead
 			"DROP":     OperationForbidden, // Should not be in data migrations
@@ -100,13 +100,13 @@ func NewEnhancedDataMigrationValidator(databaseType string) *EnhancedDataMigrati
 			// Patterns that should trigger warnings or errors
 			regexp.MustCompile(`(?i)\bDROP\s+(TABLE|DATABASE|SCHEMA|INDEX|VIEW)\b`),
 			regexp.MustCompile(`(?i)\bTRUNCATE\s+TABLE\b`),
-			regexp.MustCompile(`(?i)\bDELETE\s+FROM\s+\w+\s*;?\s*$`), // DELETE without WHERE
+			regexp.MustCompile(`(?i)\bDELETE\s+FROM\s+\w+\s*;?\s*$`),     // DELETE without WHERE
 			regexp.MustCompile(`(?i)\bUPDATE\s+\w+\s+SET\s+.*\s*;?\s*$`), // UPDATE without WHERE
-			regexp.MustCompile(`(?i)\bALTER\s+TABLE\b`), // Schema changes in data migration
-			regexp.MustCompile(`(?i)\bCREATE\s+(TABLE|INDEX|VIEW)\b`), // Schema creation in data migration
-			regexp.MustCompile(`(?i)\b(EXEC|EXECUTE)\s+`), // Dynamic SQL execution
-			regexp.MustCompile(`(?i)\bSELECT\s+.*\bINTO\s+OUTFILE\b`), // File operations
-			regexp.MustCompile(`(?i)\bLOAD\s+DATA\b`), // File loading
+			regexp.MustCompile(`(?i)\bALTER\s+TABLE\b`),                  // Schema changes in data migration
+			regexp.MustCompile(`(?i)\bCREATE\s+(TABLE|INDEX|VIEW)\b`),    // Schema creation in data migration
+			regexp.MustCompile(`(?i)\b(EXEC|EXECUTE)\s+`),                // Dynamic SQL execution
+			regexp.MustCompile(`(?i)\bSELECT\s+.*\bINTO\s+OUTFILE\b`),    // File operations
+			regexp.MustCompile(`(?i)\bLOAD\s+DATA\b`),                    // File loading
 		},
 		requiredApprovals: map[string]bool{
 			"DELETE":             true,
@@ -115,11 +115,11 @@ func NewEnhancedDataMigrationValidator(databaseType string) *EnhancedDataMigrati
 			"BULK_INSERT":        true,
 		},
 		resourceThresholds: ResourceThresholds{
-			MaxEstimatedRows:     10000000,                // 10M rows
-			MaxExecutionTime:     time.Hour * 4,           // 4 hours
-			MaxBatchSize:         100000,                  // 100K per batch
-			WarnAtRows:           1000000,                 // Warn at 1M rows
-			WarnAtExecutionTime:  time.Hour,               // Warn at 1 hour
+			MaxEstimatedRows:    10000000,      // 10M rows
+			MaxExecutionTime:    time.Hour * 4, // 4 hours
+			MaxBatchSize:        100000,        // 100K per batch
+			WarnAtRows:          1000000,       // Warn at 1M rows
+			WarnAtExecutionTime: time.Hour,     // Warn at 1 hour
 		},
 	}
 }
@@ -249,7 +249,7 @@ func (v *EnhancedDataMigrationValidator) validateSQLSafety(migration *schemasv1a
 				})
 			} else if strings.Contains(pattern.String(), "DELETE.*FROM.*$|UPDATE.*SET.*$") {
 				result.Warnings = append(result.Warnings, ValidationWarning{
-					Field:   "sql", 
+					Field:   "sql",
 					Message: "Potentially dangerous operation without WHERE clause detected",
 					Code:    "MISSING_WHERE_CLAUSE",
 				})
@@ -474,7 +474,7 @@ func (v *EnhancedDataMigrationValidator) ValidateDataMigrations(migrations []sch
 // validateDependencies checks for circular dependencies and missing references
 func (v *EnhancedDataMigrationValidator) validateDependencies(migrations []schemasv1alpha4.DataMigration, result *ValidationResult) error {
 	resolver := schemasv1alpha4.NewDependencyResolver(migrations)
-	
+
 	// Check for dependency validation errors
 	if err := resolver.ValidateDependencies(); err != nil {
 		if strings.Contains(err.Error(), "circular dependency") {
@@ -558,9 +558,9 @@ func (v *EnhancedDataMigrationValidator) validateSQLite(sql string, result *Vali
 // checkSQLInjectionPatterns checks for potential SQL injection patterns
 func (v *EnhancedDataMigrationValidator) checkSQLInjectionPatterns(sql string, result *ValidationResult) error {
 	injectionPatterns := []*regexp.Regexp{
-		regexp.MustCompile(`'.*?'.*?;.*?--`), // String with semicolon and comment
+		regexp.MustCompile(`'.*?'.*?;.*?--`),     // String with semicolon and comment
 		regexp.MustCompile(`\bunion\s+select\b`), // UNION-based injection
-		regexp.MustCompile(`'.*?'\s*;\s*\w+`), // Statement termination
+		regexp.MustCompile(`'.*?'\s*;\s*\w+`),    // Statement termination
 	}
 
 	for _, pattern := range injectionPatterns {
@@ -579,7 +579,7 @@ func (v *EnhancedDataMigrationValidator) checkSQLInjectionPatterns(sql string, r
 // generateTestValues creates test values for template validation
 func (v *EnhancedDataMigrationValidator) generateTestValues(params []schemasv1alpha4.TemplateParameter) map[string]interface{} {
 	values := make(map[string]interface{})
-	
+
 	for _, param := range params {
 		if param.Default != "" {
 			switch param.Type {
@@ -650,7 +650,7 @@ func (v *EnhancedDataMigrationValidator) estimateAffectedRows(sql string) int64 
 // estimateExecutionTime estimates how long a migration might take
 func (v *EnhancedDataMigrationValidator) estimateExecutionTime(sql string, estimatedRows int64, batchSize int32) time.Duration {
 	upperSQL := strings.ToUpper(sql)
-	
+
 	// Base time per row (varies by operation)
 	var timePerRow time.Duration
 	if strings.HasPrefix(upperSQL, "UPDATE") {
@@ -686,7 +686,7 @@ func (v *ValidationResult) GetValidationSummary() string {
 	}
 
 	var summary strings.Builder
-	
+
 	if !v.IsValid {
 		summary.WriteString(fmt.Sprintf("❌ Migration validation FAILED with %d error(s):\n", len(v.Errors)))
 		for _, err := range v.Errors {
@@ -712,4 +712,4 @@ func (v *ValidationResult) GetValidationSummary() string {
 	}
 
 	return summary.String()
-} 
+}

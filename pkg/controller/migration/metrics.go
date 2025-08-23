@@ -25,26 +25,26 @@ import (
 
 // MigrationMetrics tracks performance metrics for data migrations
 type MigrationMetrics struct {
-	mu                    sync.RWMutex
-	schemaMigrations      map[string]*MigrationPhaseMetrics
-	dataMigrations        map[string]*MigrationPhaseMetrics
-	totalMigrations       int64
-	successfulMigrations  int64
-	failedMigrations      int64
-	retriedMigrations     int64
+	mu                   sync.RWMutex
+	schemaMigrations     map[string]*MigrationPhaseMetrics
+	dataMigrations       map[string]*MigrationPhaseMetrics
+	totalMigrations      int64
+	successfulMigrations int64
+	failedMigrations     int64
+	retriedMigrations    int64
 }
 
 // MigrationPhaseMetrics tracks metrics for a specific migration phase
 type MigrationPhaseMetrics struct {
-	MigrationName   string
-	Phase           string
-	StartTime       time.Time
-	EndTime         time.Time
-	Duration        time.Duration
-	RowsAffected    int64
-	Status          schemasv1alpha4.DataMigrationStatus
-	RetryCount      int
-	ErrorMessage    string
+	MigrationName string
+	Phase         string
+	StartTime     time.Time
+	EndTime       time.Time
+	Duration      time.Duration
+	RowsAffected  int64
+	Status        schemasv1alpha4.DataMigrationStatus
+	RetryCount    int
+	ErrorMessage  string
 }
 
 // Global metrics instance
@@ -225,4 +225,4 @@ func (m *MigrationMetrics) GetAverageExecutionTime(phase string) time.Duration {
 	}
 
 	return totalDuration / time.Duration(count)
-} 
+}
